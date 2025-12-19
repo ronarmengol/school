@@ -13,8 +13,62 @@ $page_title = "Maintenance Management - Asset Management";
 include '../../includes/header.php';
 include 'assets_styles.php';
 
-// Initialize empty data
+// Fetch maintenance records from database
 $maintenance = [];
+$maintenance_query = "
+  SELECT 
+    am.maintenance_id,
+    am.task_description,
+    am.scheduled_date,
+    am.completed_date,
+    am.priority,
+    am.status,
+    am.cost,
+    am.performed_by,
+    am.notes,
+    a.asset_id,
+    a.asset_code,
+    a.asset_name,
+    ac.category_name
+  FROM asset_maintenance am
+  INNER JOIN assets a ON am.asset_id = a.asset_id
+  LEFT JOIN asset_categories ac ON a.category_id = ac.category_id
+  ORDER BY 
+    CASE am.priority
+      WHEN 'Critical' THEN 1
+      WHEN 'High' THEN 2
+      WHEN 'Medium' THEN 3
+      WHEN 'Low' THEN 4
+    END,
+    am.scheduled_date ASC
+";
+
+if ($maintenance_result = mysqli_query($conn, $maintenance_query)) {
+  while ($row = mysqli_fetch_assoc($maintenance_result)) {
+    $maintenance[] = $row;
+  }
+  mysqli_free_result($maintenance_result);
+}
+
+// Calculate statistics
+$total_maintenance = count($maintenance);
+$critical_high = 0;
+$overdue = 0;
+$completed = 0;
+
+foreach ($maintenance as $m) {
+  if ($m['priority'] == 'Critical' || $m['priority'] == 'High') {
+    $critical_high++;
+  }
+  if ($m['status'] == 'Overdue') {
+    $overdue++;
+  }
+  if ($m['status'] == 'Completed') {
+    $completed++;
+  }
+}
+
+
 ?>
 
 <div class="asset-module-wrap">
@@ -28,16 +82,77 @@ $maintenance = [];
       <h1 class="asset-title">Maintenance Schedule</h1>
     </div>
     <div class="header-actions">
-      <button class="asset-btn asset-btn-primary">
+      <a href="schedule_maintenance.php" class="asset-btn asset-btn-primary">
         <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
         </svg>
         Schedule Maintenance
-      </button>
+      </a>
     </div>
   </div>
 
   <?php include 'assets_header.php'; ?>
+
+  <!-- Maintenance Summary KPIs -->
+  <div class="kpi-grid" style="margin-bottom: 24px;">
+    <div class="kpi-card">
+      <span class="kpi-label">Total Tasks</span>
+      <span class="kpi-value"><?php echo number_format($total_maintenance); ?></span>
+      <div class="kpi-trend" style="color: var(--asset-muted);">
+        <span>All maintenance records</span>
+      </div>
+      <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
+        <path
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Critical / High Priority</span>
+      <span class="kpi-value" style="color: var(--asset-danger);"><?php echo number_format($critical_high); ?></span>
+      <div class="kpi-trend" style="color: var(--asset-muted);">
+        <span>Requires immediate attention</span>
+      </div>
+      <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
+        <path fill-rule="evenodd"
+          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+          clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Overdue</span>
+      <span class="kpi-value" style="color: var(--asset-warning);"><?php echo number_format($overdue); ?></span>
+      <div class="kpi-trend trend-down">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+            clip-rule="evenodd" />
+        </svg>
+        <span>Past scheduled date</span>
+      </div>
+      <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
+        <path fill-rule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+          clip-rule="evenodd" />
+      </svg>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Completed</span>
+      <span class="kpi-value" style="color: var(--asset-success);"><?php echo number_format($completed); ?></span>
+      <div class="kpi-trend trend-up">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+            clip-rule="evenodd" />
+        </svg>
+        <span>Successfully finished</span>
+      </div>
+      <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
+        <path fill-rule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+          clip-rule="evenodd" />
+      </svg>
+    </div>
+  </div>
 
   <div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px;">
     <div class="asset-card">
@@ -73,16 +188,29 @@ $maintenance = [];
           <?php else:
             foreach ($maintenance as $m): ?>
               <tr>
-                <td style="font-weight: 700;"><?php echo $m['asset']; ?></td>
-                <td style="font-size: 13px;"><?php echo $m['task']; ?></td>
+                <td style="font-weight: 700;">
+                  <div style="font-family: monospace; color: var(--asset-primary); font-size: 12px; margin-bottom: 4px;">
+                    <?php echo htmlspecialchars($m['asset_code']); ?>
+                  </div>
+                  <div style="font-size: 14px; font-weight: 600;">
+                    <?php echo htmlspecialchars($m['asset_name']); ?>
+                  </div>
+                  <?php if (!empty($m['category_name'])): ?>
+                    <div style="font-size: 12px; color: var(--asset-muted); margin-top: 2px;">
+                      <?php echo htmlspecialchars($m['category_name']); ?>
+                    </div>
+                  <?php endif; ?>
+                </td>
+                <td style="font-size: 13px;"><?php echo htmlspecialchars($m['task_description']); ?></td>
                 <td style="font-weight: 600; color: var(--asset-muted);">
-                  <?php echo date('M d, Y', strtotime($m['date'])); ?>
+                  <?php echo date('M d, Y', strtotime($m['scheduled_date'])); ?>
                 </td>
                 <td>
-                  <?php $p_color = ($m['prio'] == 'Critical' || $m['prio'] == 'High') ? 'color: #ef4444; background: #fef2f2;' : 'color: #3b82f6; background: #eff6ff;'; ?>
-                  <span
-                    style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; <?php echo $p_color; ?>">
-                    <?php echo $m['prio']; ?>
+                  <?php
+                  $p_class = 'prio-' . strtolower($m['priority']);
+                  ?>
+                  <span class="prio-badge <?php echo $p_class; ?>">
+                    <?php echo htmlspecialchars($m['priority']); ?>
                   </span>
                 </td>
                 <td>
@@ -94,10 +222,12 @@ $maintenance = [];
                     $s_style = 'background: #dcfce7; color: #15803d;';
                   if ($m['status'] == 'Scheduled')
                     $s_style = 'background: #dbeafe; color: #1e40af;';
+                  if ($m['status'] == 'In Progress')
+                    $s_style = 'background: #fef3c7; color: #92400e;';
                   ?>
                   <span
                     style="font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; <?php echo $s_style; ?>">
-                    <?php echo $m['status']; ?>
+                    <?php echo htmlspecialchars($m['status']); ?>
                   </span>
                 </td>
                 <td style="text-align: right;">

@@ -61,6 +61,7 @@ $school_logo = get_setting('school_logo', '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
         * {
             margin: 0;
@@ -83,8 +84,8 @@ $school_logo = get_setting('school_logo', '');
 
         /* LEFT PANEL - Visual/Branding */
         .visual-panel {
-            flex: 1;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            flex: 1.2;
+            background: radial-gradient(circle at center, #1a0026 0%, #000000 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -94,26 +95,13 @@ $school_logo = get_setting('school_logo', '');
             overflow: hidden;
         }
 
-        .visual-panel::before {
-            content: '';
+        #canvas-holder {
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
-            background-size: 50px 50px;
-            animation: moveBackground 20s linear infinite;
-        }
-
-        @keyframes moveBackground {
-            0% {
-                transform: translate(0, 0);
-            }
-
-            100% {
-                transform: translate(50px, 50px);
-            }
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
         }
 
         .branding-content {
@@ -412,6 +400,7 @@ $school_logo = get_setting('school_logo', '');
     <div class="login-wrapper">
         <!-- LEFT PANEL - Visual/Branding -->
         <div class="visual-panel">
+            <div id="canvas-holder"></div>
             <div class="branding-content">
                 <div class="logo-container">
                     <?php if (!empty($school_logo)): ?>
@@ -532,6 +521,124 @@ $school_logo = get_setting('school_logo', '');
             </div>
         </div>
     </div>
+    <script>
+        let shapes = [];
+        const colors = ['#ff00ff', '#b366ff', '#ffffff'];
+
+        function setup() {
+            let canvas = createCanvas(windowWidth * 1.2 / 2.2, windowHeight);
+            canvas.parent('canvas-holder');
+
+            // Re-calculate width based on flex layout if necessary, 
+            // but windowWidth * (flex_ratio / total_ratio) is a good approximation.
+            handleResize();
+
+            // Foreground (Fast, Bright)
+            for (let i = 0; i < 6; i++) shapes.push(new FloatShape(0));
+            // Midground (Standard)
+            for (let i = 0; i < 8; i++) shapes.push(new FloatShape(1));
+            // Background (Slow, Blurred)
+            for (let i = 0; i < 6; i++) shapes.push(new FloatShape(2));
+
+            // Plus signs
+            for (let i = 0; i < 15; i++) shapes.push(new FloatShape(random([0, 1, 2]), true));
+        }
+
+        function draw() {
+            clear(); // Keep background from CSS radial gradient
+
+            shapes.forEach(shape => {
+                shape.update();
+                shape.display();
+            });
+        }
+
+        class FloatShape {
+            constructor(layer, isPlus = false) {
+                this.layer = layer; // 0=Fore, 1=Mid, 2=Back
+                this.isPlus = isPlus;
+                this.reset(true);
+            }
+
+            reset(initial = false) {
+                this.x = initial ? random(width) : -50;
+                this.y = initial ? random(height) : -50;
+
+                // Speed and Size based on layer
+                if (this.layer === 0) { // Foreground
+                    this.speed = random(0.8, 1.2);
+                    this.w = random(60, 100);
+                    this.h = random(20, 30);
+                    this.opacity = 255;
+                    this.blur = 0;
+                    this.strokeW = random(3, 4);
+                } else if (this.layer === 1) { // Midground
+                    this.speed = random(0.4, 0.7);
+                    this.w = random(40, 70);
+                    this.h = random(15, 20);
+                    this.opacity = 180; // ~70%
+                    this.blur = 0;
+                    this.strokeW = 2.5;
+                } else { // Background
+                    this.speed = random(0.1, 0.3);
+                    this.w = random(20, 40);
+                    this.h = random(8, 12);
+                    this.opacity = 76; // ~30%
+                    this.blur = 3;
+                    this.strokeW = 2;
+                }
+
+                this.color = random(colors);
+                this.angle = PI / 4; // 45 degrees
+            }
+
+            update() {
+                this.x += this.speed;
+                this.y += this.speed;
+
+                // Wrap around logic
+                if (this.x > width + 100) this.x = -100;
+                if (this.y > height + 100) this.y = -100;
+            }
+
+            display() {
+                push();
+                translate(this.x, this.y);
+                rotate(this.angle);
+
+                let c = color(this.color);
+                c.setAlpha(this.opacity);
+
+                stroke(c);
+                strokeWeight(this.strokeW);
+                noFill();
+
+                // Glow effect
+                drawingContext.shadowBlur = this.layer === 2 ? 0 : 15;
+                drawingContext.shadowColor = this.color;
+
+                if (this.isPlus) {
+                    let s = this.h / 2;
+                    line(-s, 0, s, 0);
+                    line(0, -s, 0, s);
+                } else {
+                    // Capsule look: rect(x, y, w, h, border-radius)
+                    rect(-this.w / 2, -this.h / 2, this.w, this.h, this.h / 2);
+                }
+
+                pop();
+            }
+        }
+
+        function windowResized() {
+            handleResize();
+        }
+
+        function handleResize() {
+            let container = document.querySelector('.visual-panel');
+            resizeCanvas(container.offsetWidth, container.offsetHeight);
+        }
+    </script>
 </body>
 
 </html>

@@ -1,6 +1,6 @@
 <?php
 // modules/assets/assets_header.php
-$current_page = basename($_SERVER['PHP_SELF']);
+$header_current_page = basename($_SERVER['PHP_SELF']);
 ?>
 <style>
   .asset-nav {
@@ -46,7 +46,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </style>
 
 <div class="asset-nav">
-  <a href="index.php" class="asset-nav-link <?php echo $current_page == 'index.php' ? 'active' : ''; ?>">
+  <a href="index.php" class="asset-nav-link <?php echo $header_current_page == 'index.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -54,20 +54,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
     Dashboard
   </a>
   <a href="list.php"
-    class="asset-nav-link <?php echo $current_page == 'list.php' || $current_page == 'add.php' || $current_page == 'edit.php' ? 'active' : ''; ?>">
+    class="asset-nav-link <?php echo $header_current_page == 'list.php' || $header_current_page == 'add.php' || $header_current_page == 'edit.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
     </svg>
     Asset List
   </a>
-  <a href="categories.php" class="asset-nav-link <?php echo $current_page == 'categories.php' ? 'active' : ''; ?>">
+  <a href="categories.php"
+    class="asset-nav-link <?php echo $header_current_page == 'categories.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M7 7h.01M7 11h.01M7 15h.01M13 7h.01M13 11h.01M13 15h.01M17 7h.01M17 11h.01M17 15h.01M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
     </svg>
     Categories
   </a>
-  <a href="locations.php" class="asset-nav-link <?php echo $current_page == 'locations.php' ? 'active' : ''; ?>">
+  <a href="locations.php" class="asset-nav-link <?php echo $header_current_page == 'locations.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -75,7 +76,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </svg>
     Locations
   </a>
-  <a href="maintenance.php" class="asset-nav-link <?php echo $current_page == 'maintenance.php' ? 'active' : ''; ?>">
+  <a href="maintenance.php"
+    class="asset-nav-link <?php echo $header_current_page == 'maintenance.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -83,14 +85,23 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </svg>
     Maintenance
   </a>
-  <a href="assignment.php" class="asset-nav-link <?php echo $current_page == 'assignment.php' ? 'active' : ''; ?>">
+  <a href="assignment.php"
+    class="asset-nav-link <?php echo $header_current_page == 'assignment.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
     </svg>
     Assignments
   </a>
-  <a href="reports.php" class="asset-nav-link <?php echo $current_page == 'reports.php' ? 'active' : ''; ?>">
+  <a href="removed_items.php"
+    class="asset-nav-link <?php echo $header_current_page == 'removed_items.php' ? 'active' : ''; ?>">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+    Removed Items
+  </a>
+  <a href="reports.php" class="asset-nav-link <?php echo $header_current_page == 'reports.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

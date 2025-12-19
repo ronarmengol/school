@@ -24,6 +24,17 @@ if ($locations_result && $locations_result->num_rows > 0) {
     $available_locations[] = $row;
   }
 }
+
+// Fetch categories from database
+$categories_query = "SELECT category_id, category_name FROM asset_categories WHERE is_active = 1 ORDER BY category_name ASC";
+$categories_result = $conn->query($categories_query);
+$available_categories = [];
+if ($categories_result && $categories_result->num_rows > 0) {
+  while ($row = $categories_result->fetch_assoc()) {
+    $available_categories[] = $row;
+  }
+}
+
 ?>
 
 <div class="asset-module-wrap">
@@ -45,7 +56,8 @@ if ($locations_result && $locations_result->num_rows > 0) {
 
   <?php include 'assets_header.php'; ?>
 
-  <form method="POST" action="save_asset.php">
+  <form method="POST" action="save_asset.php" id="addAssetForm">
+    <input type="hidden" name="add_another" id="add_another" value="0">
     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
       <!-- Main Details -->
       <div style="display: flex; flex-direction: column; gap: 24px;">
@@ -65,7 +77,15 @@ if ($locations_result && $locations_result->num_rows > 0) {
             </div>
             <div class="asset-form-group">
               <label class="asset-label">Asset Code / Tag</label>
-              <input type="text" name="code" class="asset-input" placeholder="e.g. ICT-LP-001" required>
+              <div style="position: relative;">
+                <input type="text" name="code" id="asset_code_input" class="asset-input" placeholder="e.g. ICT-LP-001" required>
+                <div id="code_status_indicator" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: none; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
+                  <!-- Icon and text will be inserted here -->
+                </div>
+              </div>
+              <div id="code_error_msg" style="display: none; color: var(--asset-danger); font-size: 11px; font-weight: 700; margin-top: 6px;">
+                This code already exists in the system.
+              </div>
             </div>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -73,11 +93,11 @@ if ($locations_result && $locations_result->num_rows > 0) {
               <label class="asset-label">Category</label>
               <select name="category" class="asset-select" required>
                 <option value="">Select Category</option>
-                <option>ICT Equipment</option>
-                <option>Furniture</option>
-                <option>Lab Gear</option>
-                <option>Sports Gear</option>
-                <option>Vehicles</option>
+                <?php foreach ($available_categories as $cat): ?>
+                  <option value="<?php echo htmlspecialchars($cat['category_id']); ?>">
+                    <?php echo htmlspecialchars($cat['category_name']); ?>
+                  </option>
+                <?php endforeach; ?>
               </select>
             </div>
             <div class="asset-form-group">
@@ -177,7 +197,7 @@ if ($locations_result && $locations_result->num_rows > 0) {
             style="width: 100%; justify-content: center; padding: 14px;">
             Save Asset Record
           </button>
-          <button type="button" class="asset-btn asset-btn-secondary"
+          <button type="button" class="asset-btn asset-btn-secondary" onclick="submitAndAddAnother()"
             style="width: 100%; justify-content: center; padding: 14px;">
             Save & Add Another
           </button>
@@ -186,5 +206,104 @@ if ($locations_result && $locations_result->num_rows > 0) {
     </div>
   </form>
 </div>
+
+<script>
+  function submitAndAddAnother() {
+    document.getElementById('add_another').value = '1';
+    document.getElementById('addAssetForm').submit();
+  }
+
+  // Display toast notifications if there are any
+  <?php if (isset($_SESSION['toast_message']) && isset($_SESSION['toast_type'])): ?>
+    window.addEventListener('DOMContentLoaded', function () {
+      <?php if ($_SESSION['toast_type'] === 'success'): ?>
+        showToastSuccess('<?php echo addslashes($_SESSION['toast_message']); ?>');
+      <?php else: ?>
+        showToastError('<?php echo addslashes($_SESSION['toast_message']); ?>');
+      <?php endif; ?>
+    });
+    <?php
+    unset($_SESSION['toast_message']);
+    unset($_SESSION['toast_type']);
+    ?>
+  <?php endif; ?>
+</script>
+
+<script>
+  // AJAX Asset Code existence check
+  const codeInput = document.getElementById('asset_code_input');
+  const indicator = document.getElementById('code_status_indicator');
+  const errorMsg = document.getElementById('code_error_msg');
+  const saveBtn = document.querySelector('button[type="submit"]');
+  const addAnotherBtn = document.querySelector('button[onclick="submitAndAddAnother()"]');
+
+  let checkTimeout;
+
+  codeInput.addEventListener('input', function () {
+    const code = this.value.trim();
+    
+    // Clear previous state
+    indicator.style.display = 'none';
+    indicator.innerHTML = '';
+    errorMsg.style.display = 'none';
+    saveBtn.disabled = false;
+    addAnotherBtn.disabled = false;
+    this.style.borderColor = '';
+
+    if (code.length < 2) return;
+
+    // Show loading state
+    indicator.style.display = 'flex';
+    indicator.style.color = 'var(--asset-muted)';
+    indicator.innerHTML = '<div class="spinner-small"></div> checking...';
+
+    clearTimeout(checkTimeout);
+    checkTimeout = setTimeout(() => {
+      fetch(`check_asset_code.php?code=${encodeURIComponent(code)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            if (data.exists) {
+              // Code exists - Show error
+              indicator.style.color = 'var(--asset-danger)';
+              indicator.innerHTML = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>';
+              errorMsg.style.display = 'block';
+              codeInput.style.borderColor = 'var(--asset-danger)';
+              saveBtn.disabled = true;
+              addAnotherBtn.disabled = true;
+              saveBtn.style.opacity = '0.5';
+              addAnotherBtn.style.opacity = '0.5';
+            } else {
+              // Code available - Show success
+              indicator.style.color = 'var(--asset-success)';
+              indicator.innerHTML = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+              errorMsg.style.display = 'none';
+              codeInput.style.borderColor = 'var(--asset-success)';
+              saveBtn.disabled = false;
+              addAnotherBtn.disabled = false;
+              saveBtn.style.opacity = '1';
+              addAnotherBtn.style.opacity = '1';
+            }
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          indicator.style.display = 'none';
+        });
+    }, 500);
+  });
+</script>
+
+<style>
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(0,0,0,0.1);
+  border-top-color: var(--asset-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <?php include '../../includes/footer.php'; ?>

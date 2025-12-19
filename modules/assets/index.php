@@ -9,22 +9,132 @@ if (get_setting('enable_asset_management', '0') == '0') {
   exit();
 }
 
-
 $page_title = "Asset Management Dashboard";
 include '../../includes/header.php';
 
-// Initialize empty data (to be replaced with database queries)
+// Fetch categories from database
+$categories_list = [];
+$cat_query = "SELECT category_id, category_name FROM asset_categories WHERE is_active = 1 ORDER BY category_name ASC";
+if ($cat_result = mysqli_query($conn, $cat_query)) {
+  while ($row = mysqli_fetch_assoc($cat_result)) {
+    $categories_list[] = $row;
+  }
+  mysqli_free_result($cat_result);
+}
+
+// Fetch assets from database
+$assets_data = [];
+$asset_query = "
+  SELECT 
+    a.asset_id,
+    a.asset_code,
+    a.asset_name,
+    a.status,
+    a.condition,
+    ac.category_name,
+    al.location_name
+  FROM assets a
+  LEFT JOIN asset_categories ac ON a.category_id = ac.category_id
+  LEFT JOIN asset_locations al ON a.location_id = al.location_id
+  WHERE a.status != 'Removed'
+  ORDER BY a.asset_code ASC
+  LIMIT 10
+";
+if ($asset_result = mysqli_query($conn, $asset_query)) {
+  while ($row = mysqli_fetch_assoc($asset_result)) {
+    $assets_data[] = $row;
+  }
+  mysqli_free_result($asset_result);
+}
+
+// Fetch real asset statistics from database
 $total_assets = 0;
 $assets_in_use = 0;
 $assets_available = 0;
 $assets_maintenance = 0;
-$currency = get_setting('currency_symbol', '$');
-$total_value = $currency . "0.00";
+$total_value = 0;
 
+// Get total assets count
+$count_query = "SELECT COUNT(*) as total FROM assets WHERE status != 'Removed'";
+if ($count_result = mysqli_query($conn, $count_query)) {
+  $count_row = mysqli_fetch_assoc($count_result);
+  $total_assets = $count_row['total'];
+  mysqli_free_result($count_result);
+}
+
+// Get assets by status
+$status_query = "
+  SELECT 
+    status,
+    COUNT(*) as count
+  FROM assets
+  WHERE status != 'Removed'
+  GROUP BY status
+";
+if ($status_result = mysqli_query($conn, $status_query)) {
+  while ($row = mysqli_fetch_assoc($status_result)) {
+    if ($row['status'] == 'In Use') {
+      $assets_in_use = $row['count'];
+    } elseif ($row['status'] == 'Available') {
+      $assets_available = $row['count'];
+    } elseif ($row['status'] == 'Maintenance') {
+      $assets_maintenance = $row['count'];
+    }
+  }
+  mysqli_free_result($status_result);
+}
+
+// Get total asset value
+$value_query = "SELECT SUM(purchase_price) as total_value FROM assets WHERE purchase_price IS NOT NULL AND status != 'Removed'";
+if ($value_result = mysqli_query($conn, $value_query)) {
+  $value_row = mysqli_fetch_assoc($value_result);
+  $total_value = $value_row['total_value'] ?? 0;
+  mysqli_free_result($value_result);
+}
+
+$currency = get_setting('currency_symbol', '$');
+$total_value = $currency . number_format($total_value, 2);
+
+// Fetch recent activity
 $recent_activity = [];
+$activity_query = "
+  SELECT 
+    aal.description,
+    aal.action_type,
+    aal.created_at,
+    u.username
+  FROM asset_activity_log aal
+  LEFT JOIN users u ON aal.performed_by = u.user_id
+  ORDER BY aal.created_at DESC
+  LIMIT 10
+";
+if ($activity_result = mysqli_query($conn, $activity_query)) {
+  while ($row = mysqli_fetch_assoc($activity_result)) {
+    $time_diff = time() - strtotime($row['created_at']);
+    if ($time_diff < 60) {
+      $time_ago = 'Just now';
+    } elseif ($time_diff < 3600) {
+      $time_ago = floor($time_diff / 60) . ' min ago';
+    } elseif ($time_diff < 86400) {
+      $time_ago = floor($time_diff / 3600) . ' hrs ago';
+    } else {
+      $time_ago = floor($time_diff / 86400) . ' days ago';
+    }
+
+    $recent_activity[] = [
+      'action' => $row['action_type'],
+      'item' => $row['description'],
+      'user' => $row['username'] ?? 'System',
+      'time' => $time_ago
+    ];
+  }
+  mysqli_free_result($activity_result);
+}
+
 $maintenance_alerts = [];
 $categories = [];
 $mock_assets = [];
+
 ?>
 
 <?php
@@ -150,7 +260,7 @@ include 'assets_styles.php';
       <div class="analytics-card">
         <div class="card-header" style="margin-bottom: 16px;">
           <h3 class="card-title">Maintenance Alerts</h3>
-          <a href="#" style="font-size: 12px; color: var(--asset-primary); font-weight: 600;">View All</a>
+          <a href="maintenance.php" style="font-size: 12px; color: var(--asset-primary); font-weight: 600;">View All</a>
         </div>
         <?php foreach ($maintenance_alerts as $alert): ?>
           <div class="maintenance-item">
@@ -201,13 +311,20 @@ include 'assets_styles.php';
         <input type="text" class="search-input" placeholder="Search by asset code, name or user...">
       </div>
       <div style="display: flex; gap: 8px;">
-        <select class="form-control" style="width: auto; font-size: 13px;">
-          <option>All Status</option>
-          <option>In Use</option>
-          <option>Available</option>
+        <select class="form-control" id="statusFilter" style="width: auto; font-size: 13px;">
+          <option value="">All Status</option>
+          <option value="Available">Available</option>
+          <option value="In Use">In Use</option>
+          <option value="Maintenance">Maintenance</option>
+          <option value="Reserved">Reserved</option>
+          <option value="Retired">Retired</option>
         </select>
-        <select class="form-control" style="width: auto; font-size: 13px;">
-          <option>Category</option>
+        <select class="form-control" id="categoryFilter" style="width: auto; font-size: 13px;">
+          <option value="0">All Categories</option>
+          <?php foreach ($categories_list as $cat): ?>
+            <option value="<?php echo $cat['category_id']; ?>"><?php echo htmlspecialchars($cat['category_name']); ?>
+            </option>
+          <?php endforeach; ?>
         </select>
       </div>
     </div>
@@ -223,10 +340,10 @@ include 'assets_styles.php';
           <th style="text-align: right;">Actions</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="assetsTableBody">
         <?php
-        if (empty($mock_assets)): ?>
-          <tr>
+        if (empty($assets_data)): ?>
+          <tr id="emptyRow">
             <td colspan="7" style="text-align: center; padding: 60px 24px; color: var(--asset-muted);">
               <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24"
                 style="margin: 0 auto 16px; opacity: 0.3;">
@@ -238,19 +355,19 @@ include 'assets_styles.php';
             </td>
           </tr>
         <?php else:
-          foreach ($mock_assets as $asset):
+          foreach ($assets_data as $asset):
             $status_slug = strtolower(str_replace(' ', '-', $asset['status']));
             ?>
             <tr>
               <td style="font-family: monospace; font-weight: 700; color: var(--asset-primary);">
-                <?php echo $asset['code']; ?>
+                <?php echo htmlspecialchars($asset['asset_code']); ?>
               </td>
-              <td style="font-weight: 600;"><?php echo $asset['name']; ?></td>
-              <td><?php echo $asset['cat']; ?></td>
-              <td><?php echo $asset['loc']; ?></td>
+              <td style="font-weight: 600;"><?php echo htmlspecialchars($asset['asset_name']); ?></td>
+              <td><?php echo htmlspecialchars($asset['category_name'] ?? 'N/A'); ?></td>
+              <td><?php echo htmlspecialchars($asset['location_name'] ?? 'N/A'); ?></td>
               <td>
                 <span class="status-badge status-<?php echo $status_slug; ?>">
-                  <i class="dot"></i> <?php echo $asset['status']; ?>
+                  <i class="dot"></i> <?php echo htmlspecialchars($asset['status']); ?>
                 </span>
               </td>
               <td>
@@ -259,19 +376,24 @@ include 'assets_styles.php';
                     <?php
                     $c_color = '#10b981';
                     $c_w = '100%';
-                    if ($asset['cond'] == 'Fair') {
+                    if ($asset['condition'] == 'Fair') {
                       $c_color = '#f59e0b';
                       $c_w = '60%';
-                    }
-                    if ($asset['cond'] == 'Damaged') {
+                    } elseif ($asset['condition'] == 'Poor') {
                       $c_color = '#ef4444';
+                      $c_w = '40%';
+                    } elseif ($asset['condition'] == 'Damaged') {
+                      $c_color = '#dc2626';
                       $c_w = '30%';
+                    } elseif ($asset['condition'] == 'New') {
+                      $c_color = '#059669';
+                      $c_w = '100%';
                     }
                     ?>
                     <div style="width: <?php echo $c_w; ?>; height: 100%; background: <?php echo $c_color; ?>;"></div>
                   </div>
                   <span
-                    style="font-size: 12px; font-weight: 600; color: var(--asset-muted);"><?php echo $asset['cond']; ?></span>
+                    style="font-size: 12px; font-weight: 600; color: var(--asset-muted);"><?php echo htmlspecialchars($asset['condition']); ?></span>
                 </div>
               </td>
               <td style="text-align: right;">
@@ -320,8 +442,9 @@ include 'assets_styles.php';
     showToast('Generating asset report...', 'success');
   }
 
-  // Interactive Bars Animation
+  // Interactive Bars Animation & Dynamic Filtering
   document.addEventListener('DOMContentLoaded', () => {
+    // Animate distribution bars
     const bars = document.querySelectorAll('.dist-bar');
     bars.forEach(bar => {
       const w = bar.style.width;
@@ -330,7 +453,170 @@ include 'assets_styles.php';
         bar.style.width = w;
       }, 300);
     });
-  });
+
+    // Dynamic Asset Filtering
+    const categoryFilter = document.getElementById('categoryFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const assetsTableBody = document.getElementById('assetsTableBody');
+
+    // Function to load assets based on filters
+    function loadAssets() {
+      const categoryId = categoryFilter.value;
+      const status = statusFilter.value;
+
+      // Show loading state
+      assetsTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 40px; color: var(--asset-muted);">
+          <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #f3f4f6; border-top-color: var(--asset-primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div style="margin-top: 12px; font-size: 14px;">Loading assets...</div>
+        </td>
+      </tr>
+    `;
+
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (categoryId && categoryId !== '0') {
+        params.append('category_id', categoryId);
+      }
+      if (status) {
+        params.append('status', status);
+      }
+
+      // Fetch assets from API
+      fetch(`api_get_assets.php?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            renderAssets(data.assets);
+          } else {
+            showError('Failed to load assets: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch(error => {
+          console.error('Error loading assets:', error);
+          showError('Network error. Please try again.');
+        });
+    }
+
+    // Function to render assets in the table
+    function renderAssets(assets) {
+      if (assets.length === 0) {
+        assetsTableBody.innerHTML = `
+        <tr id="emptyRow">
+          <td colspan="7" style="text-align: center; padding: 60px 24px; color: var(--asset-muted);">
+            <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              style="margin: 0 auto 16px; opacity: 0.3;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">No Assets Found</div>
+            <div style="font-size: 14px;">No assets match the selected filters.</div>
+          </td>
+        </tr>
+      `;
+        return;
+      }
+
+      let html = '';
+      assets.forEach(asset => {
+        const statusSlug = asset.status.toLowerCase().replace(' ', '-');
+
+        // Determine condition color and width
+        let condColor = '#10b981';
+        let condWidth = '100%';
+        if (asset.condition === 'Fair') {
+          condColor = '#f59e0b';
+          condWidth = '60%';
+        } else if (asset.condition === 'Poor') {
+          condColor = '#ef4444';
+          condWidth = '40%';
+        } else if (asset.condition === 'Damaged') {
+          condColor = '#dc2626';
+          condWidth = '30%';
+        } else if (asset.condition === 'New') {
+          condColor = '#059669';
+          condWidth = '100%';
+        }
+
+        html += `
+        <tr>
+          <td style="font-family: monospace; font-weight: 700; color: var(--asset-primary);">
+            ${escapeHtml(asset.asset_code)}
+          </td>
+          <td style="font-weight: 600;">${escapeHtml(asset.asset_name)}</td>
+          <td>${escapeHtml(asset.category_name || 'N/A')}</td>
+          <td>${escapeHtml(asset.location_name || 'N/A')}</td>
+          <td>
+            <span class="status-badge status-${statusSlug}">
+              <i class="dot"></i> ${escapeHtml(asset.status)}
+            </span>
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="width: 40px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${condWidth}; height: 100%; background: ${condColor};"></div>
+              </div>
+              <span style="font-size: 12px; font-weight: 600; color: var(--asset-muted);">${escapeHtml(asset.condition)}</span>
+            </div>
+          </td>
+          <td style="text-align: right;">
+            <div style="display: flex; gap: 4px; justify-content: flex-end;">
+              <button class="btn btn-icon" style="padding: 6px; border: 1px solid #e2e8f0;" title="View Details">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+              <button class="btn btn-icon" style="padding: 6px; border: 1px solid #e2e8f0;" title="Edit Asset">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+      });
+
+      assetsTableBody.innerHTML = html;
+    }
+
+    // Function to show error message
+    function showError(message) {
+      assetsTableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; padding: 40px; color: #dc2626;">
+          <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin: 0 auto 12px; opacity: 0.5;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div style="font-size: 14px; font-weight: 600;">${message}</div>
+        </td>
+      </tr>
+    `;
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Add event listeners to filters
+    categoryFilter.addEventListener('change', loadAssets);
+    statusFilter.addEventListener('change', loadAssets);
+
+    // Add CSS for loading spinner animation
+    const style = document.createElement('style');
+    style.textContent = `
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  `;
+    document.head.appendChild(style);
+  }); // End DOMContentLoaded
+
 </script>
 
 <?php include '../../includes/footer.php'; ?>
