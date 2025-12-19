@@ -1,0 +1,12 @@
+// Add this code to the renderMiniCalendar function after line 413 (after dayCell.appendChild(dot);)
+
+// Add click handler to show modal
+dayCell.style.cursor = 'pointer';
+dayCell.addEventListener('click', () => {
+    const events = calendarEvents.filter(e => e.start_date === dateStr).map(e => ({
+        title: e.title,
+        description: e.description || '',
+        type: e.event_type
+    }));
+    showEventModal(dateStr, events);
+});

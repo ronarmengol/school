@@ -1,0 +1,108 @@
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+  #marqueeContainer {
+    top: 60px !important;
+    font-size: 14px;
+    padding: 10px 0 !important;
+  }
+
+  #marqueespacer {
+    height: 110px !important;
+  }
+
+  #marqueeContent {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .card.bg-primary .card-body>div {
+    flex-direction: column !important;
+    gap: 15px;
+  }
+
+  .card.bg-primary h2 {
+    font-size: 1.5rem !important;
+  }
+
+  .card.bg-primary p {
+    font-size: 14px !important;
+  }
+
+  .calendar-day {
+    min-height: 80px !important;
+    padding: 4px !important;
+  }
+
+  .day-number {
+    font-size: 12px !important;
+  }
+
+  .event-dot {
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+  }
+
+  .calendar-day-header {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+  }
+
+  .card {
+    margin-bottom: 15px !important;
+  }
+
+  .card-body {
+    padding: 15px !important;
+  }
+
+  .btn {
+    font-size: 14px !important;
+    padding: 8px 16px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  #marqueeContainer {
+    top: 56px !important;
+    font-size: 13px;
+  }
+
+  .card.bg-primary h2 {
+    font-size: 1.25rem !important;
+  }
+
+  .calendar-day {
+    min-height: 60px !important;
+    padding: 2px !important;
+  }
+
+  .day-number {
+    font-size: 11px !important;
+  }
+
+  .event-dot {
+    font-size: 8px !important;
+    padding: 1px 3px !important;
+  }
+
+  .calendar-day-header {
+    font-size: 11px !important;
+    padding: 6px 2px !important;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .hover-effect:hover {
+    transform: none;
+  }
+
+  .calendar-day:hover {
+    background: white !important;
+  }
+
+  .btn,
+  .calendar-day {
+    min-height: 44px;
+  }
+}

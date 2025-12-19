@@ -1,0 +1,8 @@
+Field	Type	Null	Key	Default	Extra
+payment_id	int	NO	PRI	NULL	auto_increment
+invoice_id	int	NO	MUL	NULL	
+amount	decimal(10,2)	NO		NULL	
+payment_method	varchar(50)	YES		NULL	
+reference_number	varchar(100)	YES		NULL	
+payment_date	timestamp	NO		CURRENT_TIMESTAMP	DEFAULT_GENERATED
+recorded_by	int	YES	MUL	NULL	

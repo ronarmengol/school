@@ -1,0 +1,366 @@
+/* Modern Mobile Design System */
+:root {
+  --mobile-primary: #3b82f6;
+  --mobile-success: #10b981;
+  --mobile-danger: #ef4444;
+  --mobile-bg: #f8fafc;
+  --mobile-card: #ffffff;
+  --mobile-text: #1e293b;
+  --mobile-text-light: #64748b;
+  --mobile-border: #e2e8f0;
+  --mobile-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --mobile-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --mobile-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --mobile-radius-sm: 6px;
+  --mobile-radius-md: 8px;
+  --mobile-radius-lg: 12px;
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+
+  /* Hide sidebar by default on mobile */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
+  }
+
+  .sidebar.active {
+    transform: translateX(0);
+  }
+
+  /* Remove sidebar margin from main content */
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    max-width: 100vw;
+    padding: 12px;
+  }
+
+  /* Mobile menu toggle */
+  .mobile-menu-toggle {
+    display: block !important;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1001;
+    background: var(--mobile-primary);
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: var(--mobile-radius-md);
+    cursor: pointer;
+    font-size: 20px;
+    box-shadow: var(--mobile-shadow-md);
+    transition: all 0.2s;
+  }
+
+  .mobile-menu-toggle:active {
+    transform: scale(0.95);
+  }
+
+  /* Sidebar overlay */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  /* Prevent overflow */
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-container {
+    overflow-x: hidden;
+  }
+
+  .content-body {
+    overflow-x: hidden;
+  }
+
+  /* Modern top bar */
+  .top-bar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 60px 16px 16px 16px;
+    border-radius: var(--mobile-radius-lg);
+    box-shadow: var(--mobile-shadow-sm);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .top-bar h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .top-bar .user-info {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Modern buttons */
+  .btn {
+    padding: 10px 20px !important;
+    font-size: 14px !important;
+    border-radius: var(--mobile-radius-md) !important;
+    font-weight: 500;
+    transition: all 0.2s;
+    box-shadow: var(--mobile-shadow-sm);
+    width: auto !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn:active {
+    transform: scale(0.97);
+  }
+
+  .btn-sm {
+    padding: 8px 16px !important;
+    font-size: 13px !important;
+  }
+
+  .btn-primary {
+    background: var(--mobile-primary);
+    border-color: var(--mobile-primary);
+    color: white;
+  }
+
+  .btn-success {
+    background: var(--mobile-success);
+    border-color: var(--mobile-success);
+    color: white;
+  }
+
+  .btn-danger {
+    background: var(--mobile-danger);
+    border-color: var(--mobile-danger);
+    color: white;
+  }
+
+  /* Modern cards */
+  .card {
+    margin-bottom: 16px !important;
+    border-radius: var(--mobile-radius-lg) !important;
+    border: 1px solid var(--mobile-border);
+    box-shadow: var(--mobile-shadow-sm);
+    overflow: hidden;
+    background: var(--mobile-card);
+  }
+
+  .card-body {
+    padding: 16px !important;
+  }
+
+  .card.bg-primary {
+    background: transparent !important;
+    border: 1px solid var(--mobile-border);
+    box-shadow: var(--mobile-shadow-sm);
+  }
+
+  .card.bg-primary .card-body>div {
+    flex-direction: column !important;
+    gap: 16px;
+  }
+
+  .card.bg-primary h2 {
+    font-size: 1.5rem !important;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .card.bg-primary p {
+    font-size: 14px !important;
+    opacity: 0.95;
+    line-height: 1.5;
+  }
+
+  /* Children cards grid */
+  .hover-effect {
+    margin-bottom: 12px;
+    border-radius: var(--mobile-radius-lg);
+    transition: all 0.2s;
+  }
+
+  .hover-effect:active {
+    transform: scale(0.98);
+  }
+
+  /* Calendar modern styling */
+  .calendar-day {
+    min-height: 70px !important;
+    padding: 6px !important;
+    border-radius: var(--mobile-radius-sm);
+    transition: background 0.2s;
+  }
+
+  .day-number {
+    font-size: 13px !important;
+    font-weight: 600;
+    color: var(--mobile-text);
+  }
+
+  .event-dot {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .calendar-day-header {
+    padding: 10px 6px !important;
+    font-size: 12px !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Tables responsive */
+  .table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-radius: var(--mobile-radius-lg);
+  }
+
+  /* Forms */
+  .form-control {
+    font-size: 16px;
+    padding: 12px;
+    border-radius: var(--mobile-radius-md);
+    border: 1px solid var(--mobile-border);
+  }
+
+  .form-control:focus {
+    outline: none;
+    border-color: var(--mobile-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  /* Marquee mobile adjustments */
+  #marqueeContainer {
+    top: 70px !important;
+    font-size: 14px;
+    padding: 10px 0 !important;
+    border-radius: var(--mobile-radius-md);
+    margin: 0 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+  }
+
+  #marqueeContent {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* PTA Messages modern styling */
+  .list-group-item {
+    border-radius: var(--mobile-radius-md) !important;
+    margin-bottom: 8px;
+    border: 1px solid var(--mobile-border) !important;
+    box-shadow: var(--mobile-shadow-sm);
+  }
+}
+
+@media (max-width: 576px) {
+
+  /* Extra small devices */
+  .main-content {
+    padding: 8px;
+  }
+
+  #marqueeContainer {
+    top: 65px !important;
+    font-size: 13px;
+    margin: 0 4px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .card-body {
+    padding: 12px !important;
+  }
+
+  .calendar-day {
+    min-height: 60px !important;
+    padding: 4px !important;
+  }
+
+  .day-number {
+    font-size: 12px !important;
+  }
+
+  .event-dot {
+    font-size: 9px !important;
+    padding: 2px 4px !important;
+  }
+
+  .calendar-day-header {
+    font-size: 11px !important;
+    padding: 8px 4px !important;
+  }
+
+  .btn {
+    padding: 9px 16px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Prevent horizontal scroll */
+* {
+  max-width: 100%;
+}
+
+img,
+table,
+.table {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Desktop - hide mobile menu */
+@media (min-width: 769px) {
+  .mobile-menu-toggle {
+    display: none !important;
+  }
+
+  .sidebar-overlay {
+    display: none !important;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .hover-effect:hover {
+    transform: none;
+  }
+
+  .calendar-day:hover {
+    background: white !important;
+  }
+
+  .btn,
+  .calendar-day {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
