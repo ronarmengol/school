@@ -13,6 +13,9 @@ $page_title = "Asset Valuation Report";
 include '../../includes/header.php';
 include 'assets_styles.php';
 
+// Get currency symbol from settings
+$currency_symbol = get_setting('currency_symbol', '$');
+
 // Depreciation settings (default: straight-line, 5 years useful life)
 $default_useful_life_years = 5;
 $depreciation_method = 'straight-line';
@@ -31,7 +34,7 @@ $assets_query = "
   FROM assets a
   LEFT JOIN asset_categories c ON a.category_id = c.category_id
   LEFT JOIN asset_locations l ON a.location_id = l.location_id
-  WHERE a.status != 'Retired' AND a.purchase_price > 0
+  WHERE a.status != 'Retired'
   ORDER BY a.purchase_price DESC
 ";
 
@@ -340,13 +343,15 @@ arsort($category_values);
     <div class="summary-grid">
       <div class="summary-card">
         <div class="summary-label">Total Purchase Value</div>
-        <div class="summary-value" style="color: #3b82f6;">KES <?php echo number_format($total_purchase_value, 0); ?>
+        <div class="summary-value" style="color: #3b82f6;"><?php echo htmlspecialchars($currency_symbol); ?>
+          <?php echo number_format($total_purchase_value, 0); ?>
         </div>
         <div class="summary-change" style="color: #64748b;">Original investment value</div>
       </div>
       <div class="summary-card">
         <div class="summary-label">Current Book Value</div>
-        <div class="summary-value" style="color: #10b981;">KES <?php echo number_format($total_current_value, 0); ?>
+        <div class="summary-value" style="color: #10b981;"><?php echo htmlspecialchars($currency_symbol); ?>
+          <?php echo number_format($total_current_value, 0); ?>
         </div>
         <div class="summary-change" style="color: #10b981;">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,7 +362,8 @@ arsort($category_values);
       </div>
       <div class="summary-card">
         <div class="summary-label">Total Depreciation</div>
-        <div class="summary-value" style="color: #ef4444;">KES <?php echo number_format($total_depreciation, 0); ?>
+        <div class="summary-value" style="color: #ef4444;"><?php echo htmlspecialchars($currency_symbol); ?>
+          <?php echo number_format($total_depreciation, 0); ?>
         </div>
         <div class="summary-change" style="color: #ef4444;">
           <?php echo $total_purchase_value > 0 ? number_format(($total_depreciation / $total_purchase_value) * 100, 1) : 0; ?>%
@@ -398,8 +404,10 @@ arsort($category_values);
                 </div>
               </div>
               <div class="category-values">
-                <span style="color: #3b82f6;">KES <?php echo number_format($values['purchase'], 0); ?></span>
-                <span style="color: #10b981;">KES <?php echo number_format($values['current'], 0); ?></span>
+                <span style="color: #3b82f6;"><?php echo htmlspecialchars($currency_symbol); ?>
+                  <?php echo number_format($values['purchase'], 0); ?></span>
+                <span style="color: #10b981;"><?php echo htmlspecialchars($currency_symbol); ?>
+                  <?php echo number_format($values['current'], 0); ?></span>
               </div>
             </div>
           <?php endforeach; ?>
@@ -447,16 +455,17 @@ arsort($category_values);
                 </td>
                 <td><?php echo htmlspecialchars($asset['category_name'] ?? 'N/A'); ?></td>
                 <td><?php echo $asset['purchase_date'] ? date('d/m/Y', strtotime($asset['purchase_date'])) : '-'; ?></td>
-                <td style="text-align: right; font-weight: 600;"><?php echo number_format($asset['purchase_price'], 2); ?>
+                <td style="text-align: right; font-weight: 600;">
+                  <?php echo number_format($asset['purchase_price'] ?? 0, 2); ?>
                 </td>
                 <td style="text-align: right; color: #64748b;">
-                  <?php echo number_format($asset['annual_depreciation'], 2); ?>
+                  <?php echo number_format($asset['annual_depreciation'] ?? 0, 2); ?>
                 </td>
                 <td style="text-align: right; color: #ef4444;">
-                  <?php echo number_format($asset['accumulated_depreciation'], 2); ?>
+                  <?php echo number_format($asset['accumulated_depreciation'] ?? 0, 2); ?>
                 </td>
                 <td style="text-align: right; font-weight: 700; color: #10b981;">
-                  <?php echo number_format($asset['current_value'], 2); ?>
+                  <?php echo number_format($asset['current_value'] ?? 0, 2); ?>
                 </td>
                 <td>
                   <div style="display: flex; align-items: center; gap: 8px;">

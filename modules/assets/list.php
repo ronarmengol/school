@@ -115,6 +115,17 @@ $end_entry = min($offset + $items_per_page, $total_assets);
 
 <!-- Flatpickr CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>
 
 <div class="asset-module-wrap">
   <div class="asset-header">
@@ -535,7 +546,14 @@ $end_entry = min($offset + $items_per_page, $total_assets);
   function submitEditAsset(event) {
     event.preventDefault();
 
-    const formData = new FormData(event.target);
+    const form = event.target;
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.innerHTML;
+
+    // Disable button and show loading
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Saving...';
 
     fetch('update_asset.php', {
       method: 'POST',
@@ -545,9 +563,46 @@ $end_entry = min($offset + $items_per_page, $total_assets);
       .then(data => {
         console.log('Update response:', data);
         if (data.success) {
+          // Get the updated values from the form
+          const assetCode = document.getElementById('edit_asset_code').value;
+          const assetName = document.getElementById('edit_asset_name').value;
+          const categorySelect = document.getElementById('edit_category_id');
+          const categoryName = categorySelect.options[categorySelect.selectedIndex]?.text || 'Uncategorized';
+          const locationSelect = document.getElementById('edit_location_id');
+          const locationName = locationSelect.options[locationSelect.selectedIndex]?.text || 'Unassigned';
+          const status = document.getElementById('edit_status').value;
+          const assignedTo = document.getElementById('edit_assigned_to').value || 'Not Assigned';
+
+          // Find and update the table row
+          const tableRows = document.querySelectorAll('.asset-table tbody tr');
+          tableRows.forEach(row => {
+            const codeCell = row.querySelector('td:first-child');
+            if (codeCell && codeCell.textContent.trim() === assetCode) {
+              // Update each cell
+              const cells = row.querySelectorAll('td');
+              if (cells.length >= 6) {
+                cells[1].innerHTML = `<span style="font-weight: 700;">${assetName}</span>`;
+                cells[2].innerHTML = `<span style="font-size: 13px; color: var(--asset-muted);">${categoryName === 'Select Category' ? 'Uncategorized' : categoryName}</span>`;
+                cells[3].innerHTML = `<span style="font-weight: 500;">${locationName === 'Select Location' ? 'Unassigned' : locationName}</span>`;
+
+                // Update status badge
+                const statusSlug = status.toLowerCase().replace(' ', '-');
+                cells[4].innerHTML = `<span class="status-badge status-${statusSlug}"><i class="dot"></i> ${status}</span>`;
+
+                cells[5].innerHTML = `<span style="font-weight: 500;">${assignedTo}</span>`;
+
+                // Add highlight animation
+                row.style.transition = 'background-color 0.3s ease';
+                row.style.backgroundColor = '#dcfce7';
+                setTimeout(() => {
+                  row.style.backgroundColor = '';
+                }, 1500);
+              }
+            }
+          });
+
           showToastSuccess(data.message || 'Asset updated successfully!');
           closeEditAssetModal();
-          setTimeout(() => window.location.reload(), 1000);
         } else {
           showToastError(data.message || 'Failed to update asset');
         }
@@ -555,6 +610,11 @@ $end_entry = min($offset + $items_per_page, $total_assets);
       .catch(error => {
         console.error('Error:', error);
         showToastError('An error occurred. Please try again.');
+      })
+      .finally(() => {
+        // Re-enable button
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
       });
   }
 

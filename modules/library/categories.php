@@ -35,8 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_category'])) {
     if (mysqli_stmt_execute($stmt)) {
       $message = $cat_id > 0 ? "Category updated successfully!" : "Category added successfully!";
       $message_type = "success";
-      if ($cat_id == 0)
-        unset($_POST);
     } else {
       $message = "Error saving category: " . mysqli_error($conn);
       $message_type = "error";
@@ -49,103 +47,274 @@ $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['searc
 $where = !empty($search) ? "WHERE category_name LIKE '%$search%' OR description LIKE '%$search%'" : "";
 $sql = "SELECT * FROM library_categories $where ORDER BY category_name ASC";
 $categories = mysqli_query($conn, $sql);
+$total_categories = mysqli_num_rows($categories);
+
+// Stats
+$active_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM library_categories WHERE status = 'Active'"))['count'] ?? 0;
+$inactive_count = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as count FROM library_categories WHERE status = 'Inactive'"))['count'] ?? 0;
 ?>
 
 <style>
   :root {
-    --cat-primary: #2c3e50;
-    --cat-secondary: #3498db;
-    --cat-success: #27ae60;
-    --cat-bg: #f8fafc;
-    --cat-border: #e2e8f0;
-    --radius-lg: 16px;
-    --transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --lib-primary: #f59e0b;
+    --lib-primary-dark: #d97706;
+    --lib-primary-light: #fcd34d;
+    --lib-secondary: #0ea5e9;
+    --lib-success: #10b981;
+    --lib-warning: #f59e0b;
+    --lib-danger: #ef4444;
+    --lib-bg: #f8fafc;
+    --lib-card: #ffffff;
+    --lib-border: #e2e8f0;
+    --lib-text: #1e293b;
+    --lib-muted: #64748b;
+    --lib-light: #94a3b8;
   }
 
-  .category-mgmt-container {
-    padding: 10px 0;
+  .categories-page {
+    min-height: 100vh;
+    padding-bottom: 60px;
   }
 
-  .cat-page-header {
+  .categories-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  /* Header Section */
+  .page-header {
+    background: linear-gradient(135deg, var(--lib-primary) 0%, var(--lib-primary-dark) 100%);
+    color: white;
+    padding: 32px;
+    border-radius: 20px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+  }
+
+  .header-content {
+    position: relative;
+    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
   }
 
-  .cat-page-header h1 {
+  .header-text h1 {
     font-size: 28px;
     font-weight: 800;
-    color: var(--cat-primary);
+    margin: 0 0 8px 0;
+  }
+
+  .header-text p {
+    font-size: 15px;
+    opacity: 0.9;
     margin: 0;
   }
 
-  .cat-page-header p {
-    color: #64748b;
-    margin: 4px 0 0 0;
-    font-size: 15px;
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    text-decoration: none;
+    transition: all 0.2s ease;
   }
 
-  .add-cat-btn {
-    padding: 12px 24px;
-    background: var(--cat-primary);
+  .btn-back:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+  }
+
+  /* Stats Cards */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--lib-card);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--lib-border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px -10px rgba(245, 158, 11, 0.2);
+  }
+
+  .stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .stat-icon.total {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #d97706;
+  }
+
+  .stat-icon.active {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #16a34a;
+  }
+
+  .stat-icon.inactive {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #dc2626;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--lib-text);
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--lib-muted);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* Table Card */
+  .table-card {
+    background: var(--lib-card);
+    border-radius: 20px;
+    border: 1px solid var(--lib-border);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--lib-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(to right, #fafafb, #f8fafc);
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .card-header-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, var(--lib-primary) 0%, var(--lib-primary-dark) 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+
+  .card-header-text h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--lib-text);
+  }
+
+  .card-header-text p {
+    margin: 4px 0 0 0;
+    font-size: 14px;
+    color: var(--lib-muted);
+  }
+
+  .btn-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, var(--lib-primary) 0%, var(--lib-primary-dark) 100%);
     color: white;
     border: none;
     border-radius: 12px;
     font-weight: 700;
+    font-size: 14px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: var(--transition);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
   }
 
-  .add-cat-btn:hover {
-    background: #1e293b;
+  .btn-add:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35);
   }
 
-  .cat-panel {
-    background: white;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--cat-border);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-  }
-
-  .search-wrapper {
-    position: relative;
-    padding: 24px;
-    border-bottom: 1px solid var(--cat-border);
+  /* Search Bar */
+  .search-bar {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--lib-border);
     background: #fafafa;
+  }
+
+  .search-wrap {
+    position: relative;
+    max-width: 400px;
+  }
+
+  .search-wrap .search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--lib-muted);
+    pointer-events: none;
   }
 
   .search-input {
     width: 100%;
-    padding: 12px 16px 12px 44px;
-    border: 1px solid var(--cat-border);
+    padding: 14px 16px 14px 48px;
+    border: 2px solid var(--lib-border);
     border-radius: 12px;
     font-size: 14px;
+    transition: all 0.2s ease;
     background: white;
-    transition: var(--transition);
   }
 
   .search-input:focus {
-    border-color: var(--cat-secondary);
-    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
     outline: none;
+    border-color: var(--lib-primary);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
   }
 
-  .search-icon {
-    position: absolute;
-    left: 40px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-  }
-
+  /* Table */
   .cat-table {
     width: 100%;
     border-collapse: collapse;
@@ -153,66 +322,91 @@ $categories = mysqli_query($conn, $sql);
 
   .cat-table th {
     text-align: left;
-    padding: 16px 24px;
+    padding: 14px 24px;
     background: #f8fafc;
-    color: #64748b;
-    font-size: 12px;
+    color: var(--lib-muted);
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    border-bottom: 1px solid var(--cat-border);
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--lib-border);
   }
 
   .cat-table td {
     padding: 20px 24px;
-    border-bottom: 1px solid var(--cat-border);
+    border-bottom: 1px solid var(--lib-border);
     font-size: 14px;
-    color: var(--cat-primary);
+    color: var(--lib-text);
+    vertical-align: middle;
   }
 
   .cat-table tr:hover {
-    background: #fcfcfc;
+    background: linear-gradient(90deg, #fffbeb 0%, transparent 50%);
   }
 
-  .cat-status-badge {
+  .cat-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .cat-name {
+    font-weight: 700;
+    color: var(--lib-text);
+  }
+
+  .cat-desc {
+    font-size: 13px;
+    color: var(--lib-muted);
+    max-width: 300px;
+  }
+
+  .status-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 4px 12px;
+    padding: 6px 12px;
     border-radius: 20px;
-    font-size: 12px;
     font-weight: 700;
+    font-size: 12px;
+  }
+
+  .status-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
   }
 
   .status-active {
-    background: #f0fdf4;
+    background: #dcfce7;
     color: #16a34a;
   }
 
   .status-inactive {
-    background: #fef2f2;
-    color: #ef4444;
+    background: #fee2e2;
+    color: #dc2626;
   }
 
-  .edit-btn {
-    padding: 8px 16px;
-    background: #f1f5f9;
-    color: var(--cat-secondary);
-    border: none;
-    border-radius: 8px;
-    font-weight: 700;
-    cursor: pointer;
+  .btn-edit {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: var(--transition);
+    padding: 8px 14px;
+    background: #f1f5f9;
+    color: var(--lib-muted);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
 
-  .edit-btn:hover {
+  .btn-edit:hover {
     background: #e2e8f0;
-    color: var(--cat-primary);
+    color: var(--lib-text);
   }
 
-  /* Modal Styles */
+  /* Modal */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -225,13 +419,10 @@ $categories = mysqli_query($conn, $sql);
     justify-content: center;
     align-items: center;
     z-index: 10000;
-    opacity: 0;
-    transition: opacity 250ms ease;
   }
 
   .modal-overlay.active {
     display: flex;
-    opacity: 1;
   }
 
   .modal-content {
@@ -240,44 +431,42 @@ $categories = mysqli_query($conn, $sql);
     max-width: 500px;
     border-radius: 20px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    transform: scale(0.9);
-    transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
     overflow: hidden;
   }
 
-  .modal-overlay.active .modal-content {
-    transform: scale(1);
-  }
-
   .modal-header {
-    padding: 24px;
-    border-bottom: 1px solid var(--cat-border);
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--lib-border);
+    background: linear-gradient(to right, #fafafb, #f8fafc);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #fafafa;
   }
 
   .modal-title {
     font-size: 20px;
     font-weight: 800;
-    color: var(--cat-primary);
+    color: var(--lib-text);
     margin: 0;
   }
 
-  .close-modal {
-    background: none;
+  .modal-close {
+    width: 36px;
+    height: 36px;
+    background: #f1f5f9;
     border: none;
-    color: #94a3b8;
+    border-radius: 10px;
     cursor: pointer;
-    padding: 5px;
-    border-radius: 50%;
-    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--lib-muted);
+    transition: all 0.2s ease;
   }
 
-  .close-modal:hover {
-    background: #f1f5f9;
-    color: #475569;
+  .modal-close:hover {
+    background: #e2e8f0;
+    color: var(--lib-text);
   }
 
   .modal-body {
@@ -288,29 +477,41 @@ $categories = mysqli_query($conn, $sql);
     margin-bottom: 24px;
   }
 
-  .form-group label {
+  .form-group:last-child {
+    margin-bottom: 0;
+  }
+
+  .form-label {
     display: block;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--cat-primary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--lib-text);
     margin-bottom: 8px;
   }
 
-  .form-control {
+  .form-input,
+  .form-textarea {
     width: 100%;
-    padding: 14px;
-    border: 1px solid var(--cat-border);
+    padding: 14px 16px;
+    border: 2px solid var(--lib-border);
     border-radius: 12px;
     font-size: 14px;
-    background: #f8fafc;
-    transition: var(--transition);
+    transition: all 0.2s ease;
+    background: var(--lib-bg);
   }
 
-  .form-control:focus {
-    border-color: var(--cat-secondary);
-    background: white;
-    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+  .form-textarea {
+    min-height: 100px;
+    resize: none;
+    font-family: inherit;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus {
     outline: none;
+    border-color: var(--lib-primary);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
   }
 
   .radio-group {
@@ -332,127 +533,264 @@ $categories = mysqli_query($conn, $sql);
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px;
-    border: 1px solid var(--cat-border);
+    padding: 14px;
+    border: 2px solid var(--lib-border);
     border-radius: 12px;
     font-weight: 600;
     font-size: 14px;
-    transition: var(--transition);
-    color: #64748b;
+    color: var(--lib-muted);
+    transition: all 0.2s ease;
   }
 
   .radio-item input:checked+.radio-label {
-    border-color: var(--cat-secondary);
-    background: #eff6ff;
-    color: var(--cat-secondary);
+    border-color: var(--lib-primary);
+    background: #fffbeb;
+    color: var(--lib-primary-dark);
   }
 
   .modal-footer {
     padding: 24px 32px;
-    border-top: 1px solid var(--cat-border);
+    border-top: 1px solid var(--lib-border);
     display: flex;
     gap: 12px;
+    background: #fafafa;
   }
 
-  .btn {
-    padding: 12px 24px;
+  .btn-cancel {
+    padding: 14px 24px;
+    background: white;
+    color: var(--lib-muted);
+    border: 2px solid var(--lib-border);
     border-radius: 12px;
     font-weight: 700;
     cursor: pointer;
-    border: none;
-    transition: var(--transition);
+    transition: all 0.2s ease;
   }
 
-  .btn-primary {
-    background: var(--cat-primary);
-    color: white;
+  .btn-cancel:hover {
+    background: #f8fafc;
+    color: var(--lib-text);
+  }
+
+  .btn-save {
     flex: 1;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--lib-primary) 0%, var(--lib-primary-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
   }
 
-  .btn-primary:hover {
-    background: #1e293b;
+  .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.35);
   }
 
-  .btn-ghost {
-    background: #f1f5f9;
-    color: #475569;
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 80px 40px;
   }
 
-  .btn-ghost:hover {
-    background: #e2e8f0;
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 20px;
+    background: #fef3c7;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--lib-primary);
+  }
+
+  .empty-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--lib-text);
+    margin-bottom: 8px;
+  }
+
+  .empty-text {
+    font-size: 14px;
+    color: var(--lib-muted);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .categories-container {
+      padding: 0 16px;
+    }
+
+    .page-header {
+      padding: 24px;
+    }
+
+    .header-content {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .stats-row {
+      grid-template-columns: 1fr;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 </style>
 
-<div class="category-mgmt-container">
-  <div class="cat-page-header">
-    <div>
-      <a href="index.php"
-        style="display: inline-flex; align-items: center; gap: 8px; color: #64748b; text-decoration: none; font-weight: 600; font-size: 13px; margin-bottom: 12px; transition: color 0.2s;"
-        onmouseover="this.style.color='var(--cat-secondary)'" onmouseout="this.style.color='#64748b'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M19 12H5M12 19l-7-7 7-7" />
-        </svg>
-        Back to Dashboard
-      </a>
-      <h1>Library Categories</h1>
-      <p>Organize your books into searchable, academic genres and departments.</p>
-    </div>
-    <button class="add-cat-btn" onclick="openModal()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
-      Add Category
-    </button>
-  </div>
-
-  <div class="cat-panel">
-    <div class="search-wrapper">
-      <form method="GET">
-        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2.5">
-          <circle cx="11" cy="11" r="8" />
-          <path d="M21 21l-4.35-4.35" />
-        </svg>
-        <input type="text" name="search" class="search-input" placeholder="Search categories..."
-          value="<?php echo htmlspecialchars($search); ?>">
-      </form>
+<div class="categories-page">
+  <div class="categories-container">
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="header-content">
+        <div class="header-text">
+          <h1>Library Categories</h1>
+          <p>Organize your books into searchable, academic genres and departments.</p>
+        </div>
+        <a href="index.php" class="btn-back">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Library
+        </a>
+      </div>
     </div>
 
-    <table class="cat-table">
-      <thead>
-        <tr>
-          <th>Category Name</th>
-          <th>Description</th>
-          <th>Status</th>
-          <th style="text-align: right;">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php while ($cat = mysqli_fetch_assoc($categories)): ?>
-          <tr>
-            <td style="font-weight: 700;"><?php echo htmlspecialchars($cat['category_name']); ?></td>
-            <td style="color: #64748b; font-size: 13px;">
-              <?php echo htmlspecialchars($cat['description'] ?: 'No description'); ?>
-            </td>
-            <td>
-              <span class="cat-status-badge status-<?php echo strtolower($cat['status']); ?>">
-                <span style="width: 6px; height: 6px; border-radius: 50%; background: currentColor;"></span>
-                <?php echo $cat['status']; ?>
-              </span>
-            </td>
-            <td style="text-align: right;">
-              <button class="edit-btn" onclick="openModal(<?php echo htmlspecialchars(json_encode($cat)); ?>)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                Edit
-              </button>
-            </td>
-          </tr>
-        <?php endwhile; ?>
-      </tbody>
-    </table>
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+        </div>
+        <div>
+          <div class="stat-value"><?php echo $total_categories; ?></div>
+          <div class="stat-label">Total Categories</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon active">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <div class="stat-value"><?php echo $active_count; ?></div>
+          <div class="stat-label">Active Categories</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon inactive">
+          <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+        <div>
+          <div class="stat-value"><?php echo $inactive_count; ?></div>
+          <div class="stat-label">Inactive Categories</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="table-card">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-header-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+          <div class="card-header-text">
+            <h2>Category List</h2>
+            <p><?php echo $total_categories; ?> categories</p>
+          </div>
+        </div>
+        <button class="btn-add" onclick="openModal()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Category
+        </button>
+      </div>
+
+      <div class="search-bar">
+        <div class="search-wrap">
+          <form method="GET">
+            <svg class="search-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" name="search" class="search-input" placeholder="Search categories..."
+              value="<?php echo htmlspecialchars($search); ?>">
+          </form>
+        </div>
+      </div>
+
+      <?php if ($total_categories > 0): ?>
+        <table class="cat-table">
+          <thead>
+            <tr>
+              <th>Category Name</th>
+              <th>Description</th>
+              <th>Status</th>
+              <th style="text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php while ($cat = mysqli_fetch_assoc($categories)): ?>
+              <tr>
+                <td><span class="cat-name"><?php echo htmlspecialchars($cat['category_name']); ?></span></td>
+                <td><span class="cat-desc"><?php echo htmlspecialchars($cat['description'] ?: 'No description'); ?></span>
+                </td>
+                <td>
+                  <span class="status-badge status-<?php echo strtolower($cat['status']); ?>">
+                    <span class="dot"></span>
+                    <?php echo $cat['status']; ?>
+                  </span>
+                </td>
+                <td style="text-align: right;">
+                  <button class="btn-edit" onclick="openModal(<?php echo htmlspecialchars(json_encode($cat)); ?>)">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                </td>
+              </tr>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
+      <?php else: ?>
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+          </div>
+          <div class="empty-title">No Categories Found</div>
+          <div class="empty-text">Start by creating your first library category to organize books.</div>
+        </div>
+      <?php endif; ?>
+    </div>
   </div>
 </div>
 
@@ -461,9 +799,9 @@ $categories = mysqli_query($conn, $sql);
   <div class="modal-content">
     <div class="modal-header">
       <h2 class="modal-title" id="modalTitle">Add New Category</h2>
-      <button class="close-modal" onclick="closeModal()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M18 6L6 18M6 6l12 12" />
+      <button class="modal-close" onclick="closeModal()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
@@ -471,17 +809,16 @@ $categories = mysqli_query($conn, $sql);
       <div class="modal-body">
         <input type="hidden" name="category_id" id="cat_id" value="0">
         <div class="form-group">
-          <label>Category Name</label>
-          <input type="text" name="category_name" id="cat_name" class="form-control" placeholder="e.g. Science"
-            required>
+          <label class="form-label">Category Name *</label>
+          <input type="text" name="category_name" id="cat_name" class="form-input" placeholder="e.g. Science" required>
         </div>
         <div class="form-group">
-          <label>Description (Optional)</label>
-          <textarea name="description" id="cat_desc" class="form-control" style="min-height: 100px; resize: none;"
+          <label class="form-label">Description (Optional)</label>
+          <textarea name="description" id="cat_desc" class="form-textarea"
             placeholder="Brief details about this category..."></textarea>
         </div>
         <div class="form-group">
-          <label>Status</label>
+          <label class="form-label">Status</label>
           <div class="radio-group">
             <label class="radio-item">
               <input type="radio" name="status" id="status_active" value="Active" checked>
@@ -495,8 +832,8 @@ $categories = mysqli_query($conn, $sql);
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button type="submit" name="save_category" class="btn btn-primary" id="saveBtn">Save Category</button>
+        <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+        <button type="submit" name="save_category" class="btn-save" id="saveBtn">Save Category</button>
       </div>
     </form>
   </div>
@@ -531,14 +868,17 @@ $categories = mysqli_query($conn, $sql);
     document.getElementById('catModal').classList.remove('active');
   }
 
-  // Close on backdrop click
   document.getElementById('catModal').addEventListener('click', function (e) {
     if (e.target === this) closeModal();
   });
 
   <?php if (!empty($message)): ?>
     document.addEventListener('DOMContentLoaded', function () {
-      showToast("<?php echo $message; ?>", "<?php echo $message_type; ?>");
+      <?php if ($message_type === 'success'): ?>
+        showToastSuccess("<?php echo addslashes($message); ?>");
+      <?php else: ?>
+        showToastError("<?php echo addslashes($message); ?>");
+      <?php endif; ?>
     });
   <?php endif; ?>
 </script>

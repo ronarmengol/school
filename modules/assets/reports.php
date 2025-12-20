@@ -12,6 +12,9 @@ if (get_setting('enable_asset_management', '0') == '0') {
 $page_title = "Asset Reports - Asset Management";
 include '../../includes/header.php';
 include 'assets_styles.php';
+
+// Get currency symbol from settings
+$currency_symbol = get_setting('currency_symbol', '$');
 ?>
 
 <div class="asset-module-wrap">
@@ -76,10 +79,7 @@ include 'assets_styles.php';
     <div class="asset-card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px;">
       <div
         style="width: 48px; height: 48px; border-radius: 12px; background: #dcfce7; color: #16a34a; display: flex; align-items: center; justify-content: center;">
-        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.407 2.67 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.407-2.67-1M12 16V7" />
-        </svg>
+        <span style="font-size: 22px; font-weight: 700;"><?php echo htmlspecialchars($currency_symbol); ?></span>
       </div>
       <div>
         <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Valuation & Depreciation</h3>
@@ -89,26 +89,6 @@ include 'assets_styles.php';
       <div style="display: flex; gap: 10px; margin-top: auto;">
         <a href="report_valuation.php" class="asset-btn asset-btn-primary"
           style="flex: 1; justify-content: center; text-decoration: none;">Financial Summary</a>
-      </div>
-    </div>
-
-    <!-- Disposal Register -->
-    <div class="asset-card" style="padding: 32px; display: flex; flex-direction: column; gap: 20px;">
-      <div
-        style="width: 48px; height: 48px; border-radius: 12px; background: #fee2e2; color: #dc2626; display: flex; align-items: center; justify-content: center;">
-        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      </div>
-      <div>
-        <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 800;">Disposal Register</h3>
-        <p style="margin: 0; font-size: 14px; color: var(--asset-muted);">Audit log of all retired, sold, or disposed
-          school assets for fixed asset accounting.</p>
-      </div>
-      <div style="display: flex; gap: 10px; margin-top: auto;">
-        <a href="removed_items.php" class="asset-btn asset-btn-primary"
-          style="flex: 1; justify-content: center; text-decoration: none;">View Register</a>
       </div>
     </div>
   </div>
