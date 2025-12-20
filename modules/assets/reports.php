@@ -44,8 +44,10 @@ include 'assets_styles.php';
           assets with their current status, location, and owner.</p>
       </div>
       <div style="display: flex; gap: 10px; margin-top: auto;">
-        <button class="asset-btn asset-btn-primary" style="flex: 1; justify-content: center;">Generate PDF</button>
-        <button class="asset-btn asset-btn-secondary" style="flex: 1; justify-content: center;">Excel Export</button>
+        <a href="report_asset_register.php?format=pdf" class="asset-btn asset-btn-primary"
+          style="flex: 1; justify-content: center; text-decoration: none;">Generate PDF</a>
+        <a href="report_asset_register.php?format=excel" class="asset-btn asset-btn-secondary"
+          style="flex: 1; justify-content: center; text-decoration: none;">Excel Export</a>
       </div>
     </div>
 
@@ -65,7 +67,8 @@ include 'assets_styles.php';
           across all asset categories.</p>
       </div>
       <div style="display: flex; gap: 10px; margin-top: auto;">
-        <button class="asset-btn asset-btn-primary" style="flex: 1; justify-content: center;">Generate Report</button>
+        <a href="report_maintenance.php" class="asset-btn asset-btn-primary"
+          style="flex: 1; justify-content: center; text-decoration: none;">Generate Report</a>
       </div>
     </div>
 
@@ -84,7 +87,8 @@ include 'assets_styles.php';
           history, and calculated depreciation over time.</p>
       </div>
       <div style="display: flex; gap: 10px; margin-top: auto;">
-        <button class="asset-btn asset-btn-primary" style="flex: 1; justify-content: center;">Financial Summary</button>
+        <a href="report_valuation.php" class="asset-btn asset-btn-primary"
+          style="flex: 1; justify-content: center; text-decoration: none;">Financial Summary</a>
       </div>
     </div>
 
@@ -103,7 +107,8 @@ include 'assets_styles.php';
           school assets for fixed asset accounting.</p>
       </div>
       <div style="display: flex; gap: 10px; margin-top: auto;">
-        <button class="asset-btn asset-btn-primary" style="flex: 1; justify-content: center;">View Register</button>
+        <a href="removed_items.php" class="asset-btn asset-btn-primary"
+          style="flex: 1; justify-content: center; text-decoration: none;">View Register</a>
       </div>
     </div>
   </div>

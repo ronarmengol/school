@@ -211,14 +211,36 @@ $pre_selected_asset = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
     border: none;
     cursor: pointer;
   }
+
+  .btn-back:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    transform: translateX(-3px);
+  }
+
+  /* Flatpickr Customization */
+  .flatpickr-calendar {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid var(--asset-border) !important;
+  }
 </style>
+
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 
 <div class="asset-module-wrap">
   <div class="schedule-container">
     <div class="schedule-header">
-      <div class="schedule-header-title">
-        <span class="breadcrumb">Asset Management > Schedule</span>
-        <h1>Add Asset Schedule</h1>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <a href="maintenance.php" class="btn-back"
+          style="background: rgba(255,255,255,0.1); color: white; padding: 8px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.2);">
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+          </svg>
+        </a>
+        <div class="schedule-header-title">
+          <span class="breadcrumb">Asset Management > Schedule</span>
+          <h1>Add Asset Schedule</h1>
+        </div>
       </div>
       <div class="schedule-header-icon">
         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -311,12 +333,12 @@ $pre_selected_asset = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
               <div class="asset-form-group">
                 <label class="asset-label">Start Date</label>
-                <input type="date" name="scheduled_date" class="asset-input" value="<?php echo date('Y-m-d'); ?>"
-                  required>
+                <input type="text" name="scheduled_date" id="scheduled_date" class="asset-input datepicker"
+                  value="<?php echo date('Y-m-d'); ?>" required>
               </div>
               <div class="asset-form-group">
                 <label class="asset-label">Due Date</label>
-                <input type="date" name="due_date" class="asset-input"
+                <input type="text" name="due_date" id="due_date" class="asset-input datepicker"
                   value="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
               </div>
             </div>
@@ -371,16 +393,6 @@ $pre_selected_asset = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
               <label class="asset-label">Notes</label>
               <input type="text" name="notes" class="asset-input" placeholder="Add any extra notes here...">
             </div>
-            <div style="margin-top: 16px;">
-              <button type="button" class="asset-btn asset-btn-secondary"
-                style="width: 100%; justify-content: center; border-style: dashed;">
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Upload File (Optional)
-              </button>
-            </div>
           </section>
         </div>
       </div>
@@ -390,10 +402,6 @@ $pre_selected_asset = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
           <button type="submit" class="btn-save-primary">Save Schedule</button>
           <button type="button" class="btn-outline" onclick="saveAndAddAnother()">Save & Add Another</button>
           <button type="button" class="btn-cancel" onclick="window.location.href='maintenance.php'">Cancel</button>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px; color: var(--asset-muted);">
-          <img src="../../assets/img/logo_placeholder.png" alt="SchoolSys Pro" style="height: 24px; opacity: 0.5;">
-          <span style="font-size: 12px; font-weight: 600;">SchoolSys Pro</span>
         </div>
       </div>
       <input type="hidden" name="add_another" id="add_another" value="0">
@@ -481,6 +489,20 @@ $pre_selected_asset = isset($_GET['asset_id']) ? intval($_GET['asset_id']) : 0;
     document.getElementById('add_another').value = '1';
     document.getElementById('scheduleForm').submit();
   }
+</script>
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    flatpickr(".datepicker", {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "d/m/Y",
+      allowInput: true,
+      monthSelectorType: "static"
+    });
+  });
 </script>
 
 <?php include '../../includes/footer.php'; ?>

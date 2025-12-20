@@ -113,6 +113,9 @@ $end_entry = min($offset + $items_per_page, $total_assets);
 
 ?>
 
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 <div class="asset-module-wrap">
   <div class="asset-header">
     <div>
@@ -413,11 +416,11 @@ $end_entry = min($offset + $items_per_page, $total_assets);
           </div>
           <div class="asset-form-group">
             <label class="asset-label">Purchase Date</label>
-            <input type="date" name="purchase_date" id="edit_purchase_date" class="asset-input">
+            <input type="text" name="purchase_date" id="edit_purchase_date" class="asset-input datepicker">
           </div>
           <div class="asset-form-group">
             <label class="asset-label">Warranty Expiry</label>
-            <input type="date" name="warranty_expiry" id="edit_warranty_expiry" class="asset-input">
+            <input type="text" name="warranty_expiry" id="edit_warranty_expiry" class="asset-input datepicker">
           </div>
         </div>
 
@@ -614,5 +617,19 @@ $end_entry = min($offset + $items_per_page, $total_assets);
     }
   });
 
+</script>
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    flatpickr(".datepicker", {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "d/m/Y",
+      allowInput: true,
+      monthSelectorType: "static"
+    });
+  });
 </script>
 <?php include '../../includes/footer.php'; ?>

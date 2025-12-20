@@ -155,7 +155,7 @@ if ($categories_result) {
                 </div>
               </td>
               <td style="white-space: nowrap; font-size: 13px; color: var(--asset-muted);">
-                <?php echo date('M d, Y', strtotime($asset['removed_at'])); ?>
+                <?php echo date('d/m/Y', strtotime($asset['removed_at'])); ?>
               </td>
               <td style="text-align: right;">
                 <button onclick="restoreAsset('<?php echo $asset['asset_code']; ?>')" class="asset-btn asset-btn-secondary"

@@ -20,7 +20,7 @@ $header_current_page = basename($_SERVER['PHP_SELF']);
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    color: var(--asset-muted);
+    color: #334155;
     transition: all 0.2s;
     display: flex;
     align-items: center;
@@ -34,8 +34,8 @@ $header_current_page = basename($_SERVER['PHP_SELF']);
   }
 
   .asset-nav-link.active {
-    background: var(--asset-primary);
-    color: white;
+    background: var(--asset-primary) !important;
+    color: white !important;
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
   }
 
@@ -100,6 +100,13 @@ $header_current_page = basename($_SERVER['PHP_SELF']);
         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
     </svg>
     Removed Items
+  </a>
+  <a href="activity.php" class="asset-nav-link <?php echo $header_current_page == 'activity.php' ? 'active' : ''; ?>">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    Activity Log
   </a>
   <a href="reports.php" class="asset-nav-link <?php echo $header_current_page == 'reports.php' ? 'active' : ''; ?>">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

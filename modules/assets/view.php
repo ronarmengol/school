@@ -77,13 +77,13 @@ $asset = [
               <label
                 style="display: block; font-size: 12px; font-weight: 700; color: var(--asset-muted); text-transform: uppercase; margin-bottom: 4px;">Purchase
                 Date</label>
-              <div style="font-weight: 600;"><?php echo date('M d, Y', strtotime($asset['purchase_date'])); ?></div>
+              <div style="font-weight: 600;"><?php echo date('d/m/Y', strtotime($asset['purchase_date'])); ?></div>
             </div>
             <div style="margin-bottom: 20px;">
               <label
                 style="display: block; font-size: 12px; font-weight: 700; color: var(--asset-muted); text-transform: uppercase; margin-bottom: 4px;">Warranty
                 Expiry</label>
-              <div style="font-weight: 600;"><?php echo date('M d, Y', strtotime($asset['warranty'])); ?></div>
+              <div style="font-weight: 600;"><?php echo date('d/m/Y', strtotime($asset['warranty'])); ?></div>
             </div>
           </div>
         </div>

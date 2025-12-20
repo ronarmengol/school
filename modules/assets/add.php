@@ -37,6 +37,9 @@ if ($categories_result && $categories_result->num_rows > 0) {
 
 ?>
 
+<!-- Flatpickr CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
 <div class="asset-module-wrap">
   <div class="asset-header">
     <div>
@@ -78,12 +81,15 @@ if ($categories_result && $categories_result->num_rows > 0) {
             <div class="asset-form-group">
               <label class="asset-label">Asset Code / Tag</label>
               <div style="position: relative;">
-                <input type="text" name="code" id="asset_code_input" class="asset-input" placeholder="e.g. ICT-LP-001" required>
-                <div id="code_status_indicator" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: none; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
+                <input type="text" name="code" id="asset_code_input" class="asset-input" placeholder="e.g. ICT-LP-001"
+                  required>
+                <div id="code_status_indicator"
+                  style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: none; align-items: center; gap: 4px; font-size: 12px; font-weight: 700;">
                   <!-- Icon and text will be inserted here -->
                 </div>
               </div>
-              <div id="code_error_msg" style="display: none; color: var(--asset-danger); font-size: 11px; font-weight: 700; margin-top: 6px;">
+              <div id="code_error_msg"
+                style="display: none; color: var(--asset-danger); font-size: 11px; font-weight: 700; margin-top: 6px;">
                 This code already exists in the system.
               </div>
             </div>
@@ -124,7 +130,7 @@ if ($categories_result && $categories_result->num_rows > 0) {
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="asset-form-group">
               <label class="asset-label">Purchase Date</label>
-              <input type="date" name="purchase_date" class="asset-input">
+              <input type="text" name="purchase_date" class="asset-input datepicker" placeholder="Select Date">
             </div>
             <div class="asset-form-group">
               <label class="asset-label">Purchase Price (<?php echo get_setting('currency_symbol', '$'); ?>)</label>
@@ -138,7 +144,7 @@ if ($categories_result && $categories_result->num_rows > 0) {
             </div>
             <div class="asset-form-group" style="margin-bottom: 0;">
               <label class="asset-label">Warranty Expiry Date</label>
-              <input type="date" name="warranty_expiry" class="asset-input">
+              <input type="text" name="warranty_expiry" class="asset-input datepicker" placeholder="Select Date">
             </div>
           </div>
         </div>
@@ -241,7 +247,7 @@ if ($categories_result && $categories_result->num_rows > 0) {
 
   codeInput.addEventListener('input', function () {
     const code = this.value.trim();
-    
+
     // Clear previous state
     indicator.style.display = 'none';
     indicator.innerHTML = '';
@@ -295,15 +301,34 @@ if ($categories_result && $categories_result->num_rows > 0) {
 </script>
 
 <style>
-.spinner-small {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(0,0,0,0.1);
-  border-top-color: var(--asset-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+  .spinner-small {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--asset-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
 </style>
+
+<!-- Flatpickr JS -->
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    flatpickr(".datepicker", {
+      dateFormat: "Y-m-d",
+      altInput: true,
+      altFormat: "d/m/Y",
+      allowInput: true,
+      monthSelectorType: "static"
+    });
+  });
+</script>
 
 <?php include '../../includes/footer.php'; ?>

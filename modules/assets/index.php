@@ -92,8 +92,72 @@ if ($value_result = mysqli_query($conn, $value_query)) {
   mysqli_free_result($value_result);
 }
 
+// === DYNAMIC TREND CALCULATIONS ===
+
+// 1. Total Assets Trend (compare with last month)
+$total_assets_last_month = 0;
+$last_month_query = "
+  SELECT COUNT(*) as total 
+  FROM assets 
+  WHERE status != 'Removed' 
+  AND created_at < DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+";
+if ($last_month_result = mysqli_query($conn, $last_month_query)) {
+  $last_month_row = mysqli_fetch_assoc($last_month_result);
+  $total_assets_last_month = $last_month_row['total'];
+  mysqli_free_result($last_month_result);
+}
+$assets_change = $total_assets - $total_assets_last_month;
+$assets_trend_direction = $assets_change >= 0 ? 'up' : 'down';
+$assets_trend_text = ($assets_change >= 0 ? '+' : '') . $assets_change . ' this month';
+
+// 2. Utilization Rate (percentage of assets in use)
+$utilization_rate = 0;
+if ($total_assets > 0) {
+  $utilization_rate = round(($assets_in_use / $total_assets) * 100);
+}
+$utilization_text = $utilization_rate . '% Utilization rate';
+
+// 3. Maintenance Trend (compare with last month)
+$maintenance_last_month = 0;
+$maint_last_month_query = "
+  SELECT COUNT(*) as total 
+  FROM assets 
+  WHERE status = 'Maintenance'
+  AND updated_at < DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+";
+if ($maint_last_result = mysqli_query($conn, $maint_last_month_query)) {
+  $maint_last_row = mysqli_fetch_assoc($maint_last_result);
+  $maintenance_last_month = $maint_last_row['total'];
+  mysqli_free_result($maint_last_result);
+}
+$maintenance_change = $assets_maintenance - $maintenance_last_month;
+$maintenance_trend_direction = $maintenance_change >= 0 ? 'down' : 'up'; // More maintenance is bad, so down arrow
+$maintenance_trend_text = ($maintenance_change >= 0 ? '+' : '') . abs($maintenance_change) . ' items flagged';
+
+// 4. Valuation Trend (compare with last quarter)
+$total_value_last_quarter = 0;
+$value_last_quarter_query = "
+  SELECT SUM(purchase_price) as total_value 
+  FROM assets 
+  WHERE purchase_price IS NOT NULL 
+  AND status != 'Removed'
+  AND created_at < DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+";
+if ($value_last_q_result = mysqli_query($conn, $value_last_quarter_query)) {
+  $value_last_q_row = mysqli_fetch_assoc($value_last_q_result);
+  $total_value_last_quarter = $value_last_q_row['total_value'] ?? 0;
+  mysqli_free_result($value_last_q_result);
+}
+$value_change_percent = 0;
+if ($total_value_last_quarter > 0) {
+  $value_change_percent = (($total_value - $total_value_last_quarter) / $total_value_last_quarter) * 100;
+}
+$value_trend_direction = $value_change_percent >= 0 ? 'up' : 'down';
+$value_trend_text = ($value_change_percent >= 0 ? '+' : '') . number_format($value_change_percent, 1) . '% vs last Q';
+
 $currency = get_setting('currency_symbol', '$');
-$total_value = $currency . number_format($total_value, 2);
+$total_value_formatted = $currency . number_format($total_value, 2);
 
 // Fetch recent activity
 $recent_activity = [];
@@ -106,7 +170,7 @@ $activity_query = "
   FROM asset_activity_log aal
   LEFT JOIN users u ON aal.performed_by = u.user_id
   ORDER BY aal.created_at DESC
-  LIMIT 10
+  LIMIT 5
 ";
 if ($activity_result = mysqli_query($conn, $activity_query)) {
   while ($row = mysqli_fetch_assoc($activity_result)) {
@@ -131,9 +195,114 @@ if ($activity_result = mysqli_query($conn, $activity_query)) {
   mysqli_free_result($activity_result);
 }
 
-$maintenance_alerts = [];
+// Fetch locations for dropdown filter
+$locations_list = [];
+$locations_query = "SELECT location_id, location_name FROM asset_locations ORDER BY location_name ASC";
+if ($locations_result = mysqli_query($conn, $locations_query)) {
+  while ($row = mysqli_fetch_assoc($locations_result)) {
+    $locations_list[] = $row;
+  }
+  mysqli_free_result($locations_result);
+}
+
+// Fetch category distribution data with counts
 $categories = [];
-$mock_assets = [];
+$category_colors = [
+  '#3b82f6', // blue
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#f59e0b', // amber
+  '#10b981', // green
+  '#06b6d4', // cyan
+  '#f97316', // orange
+  '#6366f1', // indigo
+];
+
+$category_dist_query = "
+  SELECT 
+    ac.category_name,
+    COUNT(a.asset_id) as asset_count
+  FROM asset_categories ac
+  LEFT JOIN assets a ON ac.category_id = a.category_id AND a.status != 'Removed'
+  WHERE ac.is_active = 1
+  GROUP BY ac.category_id, ac.category_name
+  HAVING asset_count > 0
+  ORDER BY asset_count DESC
+";
+
+if ($category_dist_result = mysqli_query($conn, $category_dist_query)) {
+  $total_for_distribution = 0;
+  $temp_categories = [];
+
+  while ($row = mysqli_fetch_assoc($category_dist_result)) {
+    $temp_categories[] = $row;
+    $total_for_distribution += $row['asset_count'];
+  }
+
+  // Add total and color to each category
+  $color_index = 0;
+  foreach ($temp_categories as $cat) {
+    $categories[] = [
+      'name' => $cat['category_name'],
+      'count' => $cat['asset_count'],
+      'total' => $total_for_distribution,
+      'color' => $category_colors[$color_index % count($category_colors)]
+    ];
+    $color_index++;
+  }
+
+  mysqli_free_result($category_dist_result);
+}
+
+// Fetch maintenance alerts (high priority or overdue)
+$maintenance_alerts = [];
+$maintenance_query = "
+  SELECT 
+    am.maintenance_id,
+    am.task_description,
+    am.scheduled_date,
+    am.priority,
+    am.status,
+    a.asset_name,
+    a.asset_code
+  FROM asset_maintenance am
+  INNER JOIN assets a ON am.asset_id = a.asset_id
+  WHERE 
+    (am.priority IN ('High', 'Critical') OR am.status = 'Overdue')
+    AND am.status NOT IN ('Completed', 'Cancelled')
+  ORDER BY 
+    FIELD(am.priority, 'Critical', 'High', 'Medium', 'Low'),
+    am.scheduled_date ASC
+  LIMIT 5
+";
+
+if ($maintenance_result = mysqli_query($conn, $maintenance_query)) {
+  while ($row = mysqli_fetch_assoc($maintenance_result)) {
+    // Calculate due date display
+    $scheduled_date = strtotime($row['scheduled_date']);
+    $today = strtotime(date('Y-m-d'));
+    $days_diff = floor(($scheduled_date - $today) / 86400);
+
+    if ($days_diff < 0) {
+      $due_text = abs($days_diff) . ' days overdue';
+    } elseif ($days_diff == 0) {
+      $due_text = 'Today';
+    } elseif ($days_diff == 1) {
+      $due_text = 'Tomorrow';
+    } else {
+      $due_text = date('M j, Y', $scheduled_date);
+    }
+
+    $maintenance_alerts[] = [
+      'item' => $row['asset_name'] . ' (' . $row['asset_code'] . ')',
+      'task' => $row['task_description'],
+      'priority' => $row['priority'],
+      'due' => $due_text,
+      'maintenance_id' => $row['maintenance_id']
+    ];
+  }
+  mysqli_free_result($maintenance_result);
+}
 
 ?>
 
@@ -164,13 +333,19 @@ include 'assets_styles.php';
     <div class="kpi-card">
       <span class="kpi-label">Total Assets</span>
       <span class="kpi-value"><?php echo number_format($total_assets); ?></span>
-      <div class="kpi-trend trend-up">
+      <div class="kpi-trend trend-<?php echo $assets_trend_direction; ?>">
         <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd"
-            d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
-            clip-rule="evenodd" />
+          <?php if ($assets_trend_direction == 'up'): ?>
+            <path fill-rule="evenodd"
+              d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+              clip-rule="evenodd" />
+          <?php else: ?>
+            <path fill-rule="evenodd"
+              d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z"
+              clip-rule="evenodd" />
+          <?php endif; ?>
         </svg>
-        <span>+12 this month</span>
+        <span><?php echo $assets_trend_text; ?></span>
       </div>
       <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
         <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -180,7 +355,7 @@ include 'assets_styles.php';
       <span class="kpi-label">Allocated</span>
       <span class="kpi-value"><?php echo number_format($assets_in_use); ?></span>
       <div class="kpi-trend" style="color: var(--asset-muted);">
-        <span>76% Utilization rate</span>
+        <span><?php echo $utilization_text; ?></span>
       </div>
       <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
         <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -190,13 +365,19 @@ include 'assets_styles.php';
       <span class="kpi-label">Maintenance</span>
       <span class="kpi-value"
         style="color: var(--asset-warning);"><?php echo number_format($assets_maintenance); ?></span>
-      <div class="kpi-trend trend-down">
+      <div class="kpi-trend trend-<?php echo $maintenance_trend_direction; ?>">
         <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd"
-            d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z"
-            clip-rule="evenodd" />
+          <?php if ($maintenance_trend_direction == 'down'): ?>
+            <path fill-rule="evenodd"
+              d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z"
+              clip-rule="evenodd" />
+          <?php else: ?>
+            <path fill-rule="evenodd"
+              d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+              clip-rule="evenodd" />
+          <?php endif; ?>
         </svg>
-        <span>+3 items flagged</span>
+        <span><?php echo $maintenance_trend_text; ?></span>
       </div>
       <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
         <path
@@ -206,9 +387,22 @@ include 'assets_styles.php';
     </div>
     <div class="kpi-card">
       <span class="kpi-label">Valuation</span>
-      <span class="kpi-value" style="color: var(--asset-primary);"><?php echo $total_value; ?></span>
-      <div class="kpi-trend trend-up">
-        <span>+2.4% vs last Q</span>
+      <span class="kpi-value" style="color: var(--asset-primary);"><?php echo $total_value_formatted; ?></span>
+      <div class="kpi-trend trend-<?php echo $value_trend_direction; ?>">
+        <?php if ($value_trend_direction == 'up'): ?>
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd"
+              d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z"
+              clip-rule="evenodd" />
+          </svg>
+        <?php elseif ($value_trend_direction == 'down'): ?>
+          <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd"
+              d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z"
+              clip-rule="evenodd" />
+          </svg>
+        <?php endif; ?>
+        <span><?php echo $value_trend_text; ?></span>
       </div>
       <svg class="kpi-icon-bg" width="80" height="80" fill="currentColor" viewBox="0 0 24 24">
         <path
@@ -223,10 +417,14 @@ include 'assets_styles.php';
     <div class="analytics-card">
       <div class="card-header">
         <h3 class="card-title">Assets by Category</h3>
-        <select class="form-control" style="width: auto; padding: 4px 12px; height: 32px; font-size: 13px;">
-          <option>All Locations</option>
-          <option>Main Campus</option>
-          <option>East Wing</option>
+        <select class="form-control" id="locationFilter"
+          style="width: auto; padding: 4px 12px; height: 32px; font-size: 13px;">
+          <option value="">All Locations</option>
+          <?php foreach ($locations_list as $location): ?>
+            <option value="<?php echo $location['location_id']; ?>">
+              <?php echo htmlspecialchars($location['location_name']); ?>
+            </option>
+          <?php endforeach; ?>
         </select>
       </div>
       <div class="distribution-list">
@@ -262,26 +460,40 @@ include 'assets_styles.php';
           <h3 class="card-title">Maintenance Alerts</h3>
           <a href="maintenance.php" style="font-size: 12px; color: var(--asset-primary); font-weight: 600;">View All</a>
         </div>
-        <?php foreach ($maintenance_alerts as $alert): ?>
-          <div class="maintenance-item">
-            <div class="maint-header">
-              <h4 class="maint-item-name"><?php echo $alert['item']; ?></h4>
-              <span
-                class="prio-badge prio-<?php echo strtolower($alert['priority']); ?>"><?php echo $alert['priority']; ?></span>
-            </div>
-            <div style="font-size: 13px; margin-bottom: 8px;"><?php echo $alert['task']; ?></div>
-            <div class="maint-info">
-              <span>Due: <strong><?php echo $alert['due']; ?></strong></span>
-              <a href="#" style="color: var(--asset-primary);">Action &rarr;</a>
-            </div>
+        <?php if (empty($maintenance_alerts)): ?>
+          <div style="text-align: center; padding: 40px 20px; color: var(--asset-muted); font-size: 14px;">
+            <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+              style="margin: 0 auto 12px; opacity: 0.3;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div style="font-weight: 600; margin-bottom: 4px;">All Clear!</div>
+            <div style="font-size: 13px;">No high priority or overdue maintenance tasks.</div>
           </div>
-        <?php endforeach; ?>
+        <?php else: ?>
+          <?php foreach ($maintenance_alerts as $alert): ?>
+            <div class="maintenance-item">
+              <div class="maint-header">
+                <h4 class="maint-item-name"><?php echo htmlspecialchars($alert['item']); ?></h4>
+                <span
+                  class="prio-badge prio-<?php echo strtolower($alert['priority']); ?>"><?php echo $alert['priority']; ?></span>
+              </div>
+              <div style="font-size: 13px; margin-bottom: 8px;"><?php echo htmlspecialchars($alert['task']); ?></div>
+              <div class="maint-info">
+                <span>Due: <strong><?php echo $alert['due']; ?></strong></span>
+                <a href="maintenance.php?id=<?php echo $alert['maintenance_id']; ?>"
+                  style="color: var(--asset-primary);">Action &rarr;</a>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
 
       <!-- Recent Activity -->
       <div class="analytics-card">
         <div class="card-header" style="margin-bottom: 16px;">
           <h3 class="card-title">Recent Activity</h3>
+          <a href="activity.php" style="font-size: 12px; color: var(--asset-primary); font-weight: 600;">View All</a>
         </div>
         <div class="activity-feed">
           <?php foreach ($recent_activity as $act): ?>
@@ -299,138 +511,6 @@ include 'assets_styles.php';
     </div>
   </div>
 
-  <!-- 4. Asset List Table -->
-  <div class="table-container">
-    <div class="table-tools">
-      <h3 class="card-title">Inventory Overview</h3>
-      <div class="search-input-group">
-        <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input type="text" class="search-input" placeholder="Search by asset code, name or user...">
-      </div>
-      <div style="display: flex; gap: 8px;">
-        <select class="form-control" id="statusFilter" style="width: auto; font-size: 13px;">
-          <option value="">All Status</option>
-          <option value="Available">Available</option>
-          <option value="In Use">In Use</option>
-          <option value="Maintenance">Maintenance</option>
-          <option value="Reserved">Reserved</option>
-          <option value="Retired">Retired</option>
-        </select>
-        <select class="form-control" id="categoryFilter" style="width: auto; font-size: 13px;">
-          <option value="0">All Categories</option>
-          <?php foreach ($categories_list as $cat): ?>
-            <option value="<?php echo $cat['category_id']; ?>"><?php echo htmlspecialchars($cat['category_name']); ?>
-            </option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-    </div>
-    <table class="asset-table">
-      <thead>
-        <tr>
-          <th>Asset Code</th>
-          <th>Asset Name</th>
-          <th>Category</th>
-          <th>Location</th>
-          <th>Status</th>
-          <th>Condition</th>
-          <th style="text-align: right;">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="assetsTableBody">
-        <?php
-        if (empty($assets_data)): ?>
-          <tr id="emptyRow">
-            <td colspan="7" style="text-align: center; padding: 60px 24px; color: var(--asset-muted);">
-              <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                style="margin: 0 auto 16px; opacity: 0.3;">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-              <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">No Assets Found</div>
-              <div style="font-size: 14px;">Start by adding your first asset to the inventory.</div>
-            </td>
-          </tr>
-        <?php else:
-          foreach ($assets_data as $asset):
-            $status_slug = strtolower(str_replace(' ', '-', $asset['status']));
-            ?>
-            <tr>
-              <td style="font-family: monospace; font-weight: 700; color: var(--asset-primary);">
-                <?php echo htmlspecialchars($asset['asset_code']); ?>
-              </td>
-              <td style="font-weight: 600;"><?php echo htmlspecialchars($asset['asset_name']); ?></td>
-              <td><?php echo htmlspecialchars($asset['category_name'] ?? 'N/A'); ?></td>
-              <td><?php echo htmlspecialchars($asset['location_name'] ?? 'N/A'); ?></td>
-              <td>
-                <span class="status-badge status-<?php echo $status_slug; ?>">
-                  <i class="dot"></i> <?php echo htmlspecialchars($asset['status']); ?>
-                </span>
-              </td>
-              <td>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <div style="width: 40px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
-                    <?php
-                    $c_color = '#10b981';
-                    $c_w = '100%';
-                    if ($asset['condition'] == 'Fair') {
-                      $c_color = '#f59e0b';
-                      $c_w = '60%';
-                    } elseif ($asset['condition'] == 'Poor') {
-                      $c_color = '#ef4444';
-                      $c_w = '40%';
-                    } elseif ($asset['condition'] == 'Damaged') {
-                      $c_color = '#dc2626';
-                      $c_w = '30%';
-                    } elseif ($asset['condition'] == 'New') {
-                      $c_color = '#059669';
-                      $c_w = '100%';
-                    }
-                    ?>
-                    <div style="width: <?php echo $c_w; ?>; height: 100%; background: <?php echo $c_color; ?>;"></div>
-                  </div>
-                  <span
-                    style="font-size: 12px; font-weight: 600; color: var(--asset-muted);"><?php echo htmlspecialchars($asset['condition']); ?></span>
-                </div>
-              </td>
-              <td style="text-align: right;">
-                <div style="display: flex; gap: 4px; justify-content: flex-end;">
-                  <button class="btn btn-icon" style="padding: 6px; border: 1px solid #e2e8f0;" title="View Details">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                  <button class="btn btn-icon" style="padding: 6px; border: 1px solid #e2e8f0;" title="Edit Asset">
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach;
-        endif; ?>
-      </tbody>
-    </table>
-    <div
-      style="padding: 16px 24px; background: #f8fafc; border-top: 1px solid var(--asset-border); display: flex; justify-content: space-between; align-items: center;">
-      <span style="font-size: 13px; color: var(--asset-muted);">Showing 1-5 of <?php echo $total_assets; ?>
-        assets</span>
-      <div style="display: flex; gap: 8px;">
-        <button class="btn" style="padding: 4px 12px; font-size: 13px; border: 1px solid #e2e8f0;">Previous</button>
-        <button class="btn"
-          style="padding: 4px 12px; font-size: 13px; background: white; border: 1px solid var(--asset-primary); color: var(--asset-primary);">1</button>
-        <button class="btn" style="padding: 4px 12px; font-size: 13px; border: 1px solid #e2e8f0;">2</button>
-        <button class="btn" style="padding: 4px 12px; font-size: 13px; border: 1px solid #e2e8f0;">Next</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -453,6 +533,93 @@ include 'assets_styles.php';
         bar.style.width = w;
       }, 300);
     });
+
+    // Location Filter for Category Distribution
+    const locationFilter = document.getElementById('locationFilter');
+    const distributionList = document.querySelector('.distribution-list');
+
+    if (locationFilter && distributionList) {
+      locationFilter.addEventListener('change', function () {
+        const locationId = this.value;
+
+        // Show loading state
+        distributionList.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--asset-muted); font-size: 14px;">
+            <div style="display: inline-block; width: 32px; height: 32px; border: 3px solid #f3f4f6; border-top-color: var(--asset-primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <div style="margin-top: 12px;">Loading distribution...</div>
+          </div>
+        `;
+
+        // Fetch category distribution
+        const params = new URLSearchParams();
+        if (locationId) {
+          params.append('location_id', locationId);
+        }
+
+        fetch(`api_get_category_distribution.php?${params.toString()}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              renderCategoryDistribution(data.categories);
+            } else {
+              distributionList.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #dc2626; font-size: 14px;">
+                  Failed to load distribution data.
+                </div>
+              `;
+            }
+          })
+          .catch(error => {
+            console.error('Error loading category distribution:', error);
+            distributionList.innerHTML = `
+              <div style="text-align: center; padding: 40px; color: #dc2626; font-size: 14px;">
+                Network error. Please try again.
+              </div>
+            `;
+          });
+      });
+    }
+
+    // Function to render category distribution
+    function renderCategoryDistribution(categories) {
+      if (categories.length === 0) {
+        distributionList.innerHTML = `
+          <div style="text-align: center; padding: 40px; color: var(--asset-muted); font-size: 14px;">
+            No asset categories found. Add categories to see distribution.
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+      categories.forEach(cat => {
+        const pct = (cat.count / cat.total) * 100;
+        html += `
+          <div class="dist-item">
+            <div class="dist-label-row">
+              <span>${escapeHtml(cat.name)}</span>
+              <span style="color: var(--asset-muted);">${cat.count} items (${Math.round(pct)}%)</span>
+            </div>
+            <div class="dist-bar-container">
+              <div class="dist-bar" style="width: 0%; background: ${cat.color};"></div>
+            </div>
+          </div>
+        `;
+      });
+
+      distributionList.innerHTML = html;
+
+      // Animate the new bars
+      setTimeout(() => {
+        const newBars = distributionList.querySelectorAll('.dist-bar');
+        newBars.forEach((bar, index) => {
+          const pct = (categories[index].count / categories[index].total) * 100;
+          bar.style.transition = 'width 0.6s ease-out';
+          bar.style.width = pct + '%';
+        });
+      }, 50);
+    }
+
 
     // Dynamic Asset Filtering
     const categoryFilter = document.getElementById('categoryFilter');
